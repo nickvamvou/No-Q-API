@@ -8,7 +8,7 @@ const role = require("../user/user-role");
 //add product to user shopping cart
 // TODO REMOVE COMMEN IN LINE 12
 router.post(
-  "/:userId/:itemId/add",
+  "/:userId/add",
   // checkAuth.userAuth([role.SHOPPER]),
   orderController.addProductToCart
 );
@@ -16,7 +16,7 @@ router.post(
 // TODO REMOVE COMMEN IN LINE 20 (authorization)
 //remove product from order
 router.delete(
-  "/:userId/:itemId/remove",
+  "/:userId/remove",
   // checkAuth.userAuth([role.SHOPPER]),
   orderController.removeProductFromCart
 );

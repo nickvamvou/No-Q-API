@@ -566,7 +566,6 @@ module.exports = {
    *
    *
    * @method addVoucherToShop
-   * @param userId
    * @param isPercentage (boolean to indicate if the voucher is a fixed price or percentage)
    * @param percentage (percentage of discount)
    * @param fixed (fixed value of money - if is percentage is False)
@@ -591,7 +590,6 @@ module.exports = {
     if (authorized) {
       //create the voucher code
       let voucherCode = module.exports.generateVoucherCode();
-
       var result = await module.exports
         .addVoucherToShopDB(
           req.body.percentage,
@@ -600,17 +598,16 @@ module.exports = {
           req.params.storeId,
           voucherCode
         )
+        .then(() => {
+          return res.status(200).json({
+            message: "Voucher Added"
+          });
+        })
         .catch(err => {
-          console.log("GOES 1");
           return res.status(500).json({
             message: "Error with DB connection when trying to add voucher"
           });
         });
-      return;
-      console.log("GOES 2");
-      return res.status(200).json({
-        message: "Product added"
-      });
     }
     // else {
     //   return res.status(401).json({
@@ -729,23 +726,36 @@ module.exports = {
     var added = false;
     //if its percentage add based on percentage
     if (isPercentage) {
-      console.log("TIMES");
       var addPercentageVoucher = "CALL add_percentage_voucher_to_shop(?, ?, ?)";
-      return (result = await new Promise((res, rej) => {
+      result = await new Promise((res, rej) => {
+        console.log(couponCode);
         pool.query(
           addPercentageVoucher,
-          [shopId, percentage, 10],
+          [shopId, percentage, couponCode],
           (err, result) => {
+            console.log("checker");
             if (err) {
-              return rej(err);
+              //if there is already a voucher with the same code repeat the addition with different code
+              if (err.errno == 1062) {
+                console.log("error");
+                couponCode = module.exports.generateVoucherCode;
+                addVoucherToShopDB(
+                  percentage,
+                  fixed,
+                  isPercentage,
+                  shopId,
+                  couponCode
+                );
+              } else {
+                console.log("return error");
+                return rej(err);
+              }
             } else {
-              console.log("THE PRODUCT WAS ADDED");
-              console.log(result.affectedRows);
               return res();
             }
           }
         );
-      }));
+      });
     }
 
     //else add voucher based on fixed value
@@ -757,10 +767,22 @@ module.exports = {
           [shopId, fixed, couponCode],
           (err, result) => {
             if (err) {
-              added = false;
-              return rej(err);
+              //if there is already a voucher with the same code repeat the addition with different code
+              if (err.errno == 1062) {
+                console.log("error");
+                couponCode = module.exports.generateVoucherCode;
+                addVoucherToShopDB(
+                  percentage,
+                  fixed,
+                  isPercentage,
+                  shopId,
+                  couponCode
+                );
+              } else {
+                console.log("return error");
+                return rej(err);
+              }
             } else {
-              added = true;
               return res();
             }
           }

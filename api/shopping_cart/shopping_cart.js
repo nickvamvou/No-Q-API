@@ -128,16 +128,19 @@ module.exports = {
       else {
         await module.exports
           .addProductToUsersCart(product.product_id, customer_cart.cart_id)
+          .then(() => {
+            //item added to cart
+            res.status(200).json({
+              message: product,
+              cart_id: customer_cart.cart_id
+            });
+          })
           .catch(err => {
-            res.status(404).json({
+            console.log("ALWAYS IN");
+            return res.status(404).json({
               message: "Customer already has the product in his/her cart"
             });
           });
-        //item added to cart
-        res.status(200).json({
-          message: product,
-          cart_id: customer_cart.cart_id
-        });
       }
     }
   },
@@ -185,7 +188,7 @@ module.exports = {
         });
       } else {
         //delete product from cart
-        var itemId = req.params.itemId;
+        var itemId = req.body.itemId;
         var result = await module.exports
           .deleteProductFromCart(itemId, customer_cart.cart_id)
           .catch(err => {
