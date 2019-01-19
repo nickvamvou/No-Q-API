@@ -7,7 +7,7 @@ const role = require("../user/user-role");
 
 //add product to user shopping cart
 // TODO REMOVE COMMEN IN LINE 12
-router.get(
+router.post(
   "/:userId/:itemId/add",
   // checkAuth.userAuth([role.SHOPPER]),
   orderController.addProductToCart

@@ -60,15 +60,14 @@ module.exports = {
   // },
 
   /**
-   * `{url}/shopping_cart/userId/RFID/add`
+   * `{url}/shopping_cart/userId/itemId/add`
    *
    * The particular method adds a particular product (based on RFID received) to the Cart of the user and if the user
    * does not have a Cart it creates a new one.
    *
    * @method addProductToCart
-   * @param UserId
-   * @param RFID
-   * @param Barcode
+   * @param RFID (int)
+   * @param Barcode (int)
    * @param Secured (boolean)
    * @return Product Details (Product information associated with the RFID received)
    * @throws Error (404) when RFID is not found.
