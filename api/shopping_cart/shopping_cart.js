@@ -1,3 +1,8 @@
+/**
+ * This class contains code describing the customer cart functionality.
+ * @class Cart
+ */
+
 const pool = require("../../config/db_connection");
 module.exports = {
   getCompletedOrder: (req, res, next) => {
@@ -26,11 +31,51 @@ module.exports = {
     }
   },
 
+  // /**
+  //  * `{url}/shopping_cart/userId/RFID/create`
+  //  *
+  //  * The particular method creates a new Cart for the User and adds the specific item to the Cart. This endpoint
+  //  * should be called when a customer does not have a cart
+  //  * @method createCartAndAddProduct
+  //  * @param  userId
+  //  * @param RFID
+  //  * @param Barcode
+  //  * @param Secured (boolean)
+  //  * @return Product Details (Product information associated with the RFID received)
+  //  * @throws Error (404) when RFID is not found.
+  //            Error (500) System Failure.
+  //            Error (404) when User already has product in his/her Cart.
+  //  */
+  // createCartAndAddProduct: async (req, res, next) => {
+  //   //check for role and matching user data in URL with matching data with the token
+  //   //TODO uncomment section below
+  //   // var authorized = checkAuthorizationRole(
+  //   //   req.userData.id,
+  //   //   req.params.userId,
+  //   //   req.userData.role
+  //   // );
+  //
+  //
+  //
+  // },
+
   /**
+   * `{url}/shopping_cart/userId/RFID/add`
    *
-   * Accepts (RFID product code).
-   * Returns (Product information associated with the RFID)
+   * The particular method adds a particular product (based on RFID received) to the Cart of the user and if the user
+   * does not have a Cart it creates a new one.
+   *
+   * @method addProductToCart
+   * @param UserId
+   * @param RFID
+   * @param Barcode
+   * @param Secured (boolean)
+   * @return Product Details (Product information associated with the RFID received)
+   * @throws Error (404) when RFID is not found.
+             Error (500) System Failure.
+             Error (404) when User already has product in his/her Cart.
    */
+
   addProductToCart: async (req, res, next) => {
     //check for role and matching user data in URL with matching data with the token
     //TODO uncomment section below
@@ -71,6 +116,7 @@ module.exports = {
         var cart_id = await module.exports
           .createCustomerCart(userId, product.store_id)
           .catch(err => {
+            console.log(err);
             return res.status(500).json({
               message: "Could not create new cart for user"
             });
@@ -90,26 +136,78 @@ module.exports = {
           });
         //item added to cart
         res.status(200).json({
-          message: product
+          message: product,
+          cart_id: customer_cart.cart_id
         });
       }
     }
   },
-  removeProductFromOrder: (req, res, next) => {
-    //check for role and matching user data in URL with matching data with the token
-    var authorized = checkAuthorizationRole(
-      req.userData.id,
-      req.params.userId,
-      req.userData.role
-    );
+
+  /**
+   * `{url}/shopping_cart/userId/itemId/remove`
+   *
+   * The particular method removes a particular product (based on itemID received) from the Users cart.
+   *
+   *
+   * @method removeProductFromCart
+   * @param UserId
+   * @param ItemId
+   * @return Whether the deletion was successful or not and the new cart
+   * @throws Error (500) System Failure.
+             Error (404) item not found in Users Cart.
+            Error (404) cart not found.
+   */
+
+  removeProductFromCart: async (req, res, next) => {
+    // //check for role and matching user data in URL with matching data with the token
+    // var authorized = checkAuthorizationRole(
+    //   req.userData.id,
+    //   req.params.userId,
+    //   req.userData.role
+    // );
+
+    authorized = true;
+
     if (authorized) {
-      //product id
-      const productId = req.params.itemId;
-      //user id
-      const userId = req.userData.id;
-      //check if user has the product to be removed
-      //remove product Id from doors
-      //remove product id and customer id from the joint table
+      //get the user from the url
+      const userId = req.params.userId;
+      //get cart id from user
+      var customer_cart = await module.exports
+        .getCartFromCustomer(userId)
+        .catch(err => {
+          return res.status(500).json({
+            message: "Error with DB connection when getting users cart"
+          });
+        });
+      //customer has no cart
+      if (customer_cart.length === 0) {
+        return res.status(404).json({
+          message: "Cart not found"
+        });
+      } else {
+        //delete product from cart
+        var itemId = req.params.itemId;
+        var result = await module.exports
+          .deleteProductFromCart(itemId, customer_cart.cart_id)
+          .catch(err => {
+            return res.status(500).json({
+              message: "Could not remove product from users cart"
+            });
+          });
+        //this means that the item was deleted, as the result is the number of affected rows in the db
+        if (result !== 0) {
+          return res.status(200).json({
+            message: "Product successfuly removed from cart",
+            cart: customer_cart
+          });
+        }
+        //no item was deleted which means that the item was not found
+        else {
+          return res.status(404).json({
+            message: "Product not removed from cart because it was not found"
+          });
+        }
+      }
     }
   },
   payForOrder: (req, res, next) => {
@@ -174,7 +272,31 @@ module.exports = {
           if (result[0] === undefined || result[0] == 0) {
             rej("Product does not Exist");
           } else {
-            res(result[0][0]);
+            //create a new array to hold all the options
+            var final_product = {};
+            var option_values = [];
+            var option_group_names = [];
+
+            //get all the option values
+            for (i = 0; i < result[0].length; i++) {
+              option_values.push(result[0][i].option_value);
+              option_group_names.push(result[0][i].option_group_name);
+            }
+            //get all product details
+            for (var property in result[0][0]) {
+              if (
+                property !== "option_value" &&
+                property !== "option_group_name"
+              ) {
+                console.log(typeof property);
+                final_product[property] = result[0][0][property];
+              }
+            }
+            //add option properties to product details
+            final_product["option_values"] = option_values;
+            final_product["option_group_names"] = option_group_names;
+
+            res(final_product);
           }
         }
       });
@@ -240,6 +362,20 @@ module.exports = {
         } else {
           //return the cart id
           return res(result[0][0].id);
+        }
+      });
+    }));
+  },
+
+  //returns if there is an effect on a deleted row or not (if a product was deleted fom the cart)
+  deleteProductFromCart: async (productId, cartId) => {
+    var removeProductFromCart = "CALL delete_product_from_user_cart(?, ?)";
+    return (result = await new Promise((res, rej) => {
+      pool.query(removeProductFromCart, [productId, cartId], (err, result) => {
+        if (err) {
+          return rej(err);
+        } else {
+          return res(result.affectedRows);
         }
       });
     }));

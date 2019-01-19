@@ -13,11 +13,12 @@ router.get(
   orderController.addProductToCart
 );
 
+// TODO REMOVE COMMEN IN LINE 20 (authorization)
 //remove product from order
 router.delete(
   "/:userId/:itemId/remove",
-  checkAuth.userAuth([role.SHOPPER]),
-  orderController.removeProductFromOrder
+  // checkAuth.userAuth([role.SHOPPER]),
+  orderController.removeProductFromCart
 );
 
 //Needs modification

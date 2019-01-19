@@ -1,13 +1,90 @@
-var fs = require("fs");
-const pool = require("../../config/db_connection");
-const role = require("../user/user-role");
-const jwt = require("jsonwebtoken");
-const key = require("../../config/jwt_s_key");
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>api/store/store.js</title>
+    <link rel="stylesheet" href="http://yui.yahooapis.com/3.9.1/build/cssgrids/cssgrids-min.css">
+    <link rel="stylesheet" href="../assets/vendor/prettify/prettify-min.css">
+    <link rel="stylesheet" href="../assets/css/main.css" id="site_styles">
+    <link rel="icon" href="../assets/favicon.ico">
+    <script src="http://yui.yahooapis.com/combo?3.9.1/build/yui/yui-min.js"></script>
+</head>
+<body class="yui3-skin-sam">
 
-/**
- * This class contains code describing the shop functionality.
- * @class Store
- */
+<div id="doc">
+    <div id="hd" class="yui3-g header">
+        <div class="yui3-u-3-4">
+                <h1><img src="../assets/css/logo.png" title="" width="117" height="52"></h1>
+        </div>
+        <div class="yui3-u-1-4 version">
+            <em>API Docs for: </em>
+        </div>
+    </div>
+    <div id="bd" class="yui3-g">
+
+        <div class="yui3-u-1-4">
+            <div id="docs-sidebar" class="sidebar apidocs">
+                <div id="api-list">
+                    <h2 class="off-left">APIs</h2>
+                    <div id="api-tabview" class="tabview">
+                        <ul class="tabs">
+                            <li><a href="#api-classes">Classes</a></li>
+                            <li><a href="#api-modules">Modules</a></li>
+                        </ul>
+                
+                        <div id="api-tabview-filter">
+                            <input type="search" id="api-filter" placeholder="Type to filter APIs">
+                        </div>
+                
+                        <div id="api-tabview-panel">
+                            <ul id="api-classes" class="apis classes">
+                                <li><a href="../classes/Cart.html">Cart</a></li>
+                            </ul>
+                
+                
+                            <ul id="api-modules" class="apis modules">
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="yui3-u-3-4">
+                <div id="api-options">
+                    Show:
+                    <label for="api-show-inherited">
+                        <input type="checkbox" id="api-show-inherited" checked>
+                        Inherited
+                    </label>
+            
+                    <label for="api-show-protected">
+                        <input type="checkbox" id="api-show-protected">
+                        Protected
+                    </label>
+            
+                    <label for="api-show-private">
+                        <input type="checkbox" id="api-show-private">
+                        Private
+                    </label>
+                    <label for="api-show-deprecated">
+                        <input type="checkbox" id="api-show-deprecated">
+                        Deprecated
+                    </label>
+            
+                </div>
+            
+            <div class="apidocs">
+                <div id="docs-main">
+                    <div class="content">
+<h1 class="file-heading">File: api/store/store.js</h1>
+
+<div class="file">
+    <pre class="code prettyprint linenums">
+var fs = require(&quot;fs&quot;);
+const pool = require(&quot;../../config/db_connection&quot;);
+const role = require(&quot;../user/user-role&quot;);
+const jwt = require(&quot;jsonwebtoken&quot;);
+const key = require(&quot;../../config/jwt_s_key&quot;);
 
 module.exports = {
   /*
@@ -19,9 +96,9 @@ module.exports = {
   /**
    * Responsible for creating a new store.
    * The owner of the store is obtained from req under the user data.
-   * @return On Success JSON returned as {"Store created", store_id}.
+   * @return On Success JSON returned as {&quot;Store created&quot;, store_id}.
    */
-  createNewStore: (req, res, next) => {
+  createNewStore: (req, res, next) =&gt; {
     //id of retailer to create new store
     const retailerId = req.userData.id;
     /*
@@ -50,8 +127,8 @@ module.exports = {
         // }
       };
       //add store to db
-      console.log("STORE TYPE : " + storeInformation.store_type);
-      var createStoreSQL = "CALL create_store(?,?,?,?)";
+      console.log(&quot;STORE TYPE : &quot; + storeInformation.store_type);
+      var createStoreSQL = &quot;CALL create_store(?,?,?,?)&quot;;
       var idas = 0;
       pool.query(
         createStoreSQL,
@@ -61,14 +138,14 @@ module.exports = {
           storeInformation.store_name,
           req.params.userId
         ],
-        (err, result) => {
+        (err, result) =&gt; {
           if (err) {
             return res.status(500).json({
               message: err
             });
           } else {
             return res.status(200).json({
-              message: "Store created",
+              message: &quot;Store created&quot;,
               storeId: result[0][0].sid
             });
           }
@@ -76,7 +153,7 @@ module.exports = {
       );
     } else {
       return res.status(401).json({
-        message: "Authentication Failed"
+        message: &quot;Authentication Failed&quot;
       });
     }
   },
@@ -84,9 +161,9 @@ module.exports = {
   /**
    * Remove store from a retailer given the id of the store.
    * Only administrators can remove stores.
-   * @return On Success the function returns JSON {"Store deleted", store_id}
+   * @return On Success the function returns JSON {&quot;Store deleted&quot;, store_id}
    */
-  removeStore: (req, res, next) => {
+  removeStore: (req, res, next) =&gt; {
     // Check if user is administrator
     var authorized = module.exports.checkAuthorizationRole(
       req.userData.id,
@@ -94,16 +171,16 @@ module.exports = {
       req.userData.role
     );
     //remove the store immediately as if reached this point the user is an admin
-    var removeStore = "CALL delete_store_by_id(?)";
+    var removeStore = &quot;CALL delete_store_by_id(?)&quot;;
     //get the store id
-    pool.query(removeStore, req.params.storeId, (err, result) => {
+    pool.query(removeStore, req.params.storeId, (err, result) =&gt; {
       if (err) {
         res.status(500).json({
-          message: "Store cannot be deleted from db"
+          message: &quot;Store cannot be deleted from db&quot;
         });
       } else {
         res.status(200).json({
-          message: "Store deleted",
+          message: &quot;Store deleted&quot;,
           storeId: req.params.storeId
         });
       }
@@ -114,18 +191,18 @@ module.exports = {
   //req.userData.id is the user id added from check-auth in JWT token
   //req.userData.role is the user role added from check-auth in JWT token
   //req.params.storeId is the store id provided by the URL
-  getAllStores: (req, res, next) => {
+  getAllStores: (req, res, next) =&gt; {
     //retrieve all stores with their information
     //NO NEED TO CHECK FOR ADMIN
-    var allStores = "CALL all_stores(?)";
-    pool.query(allStores, (err, result) => {
+    var allStores = &quot;CALL all_stores(?)&quot;;
+    pool.query(allStores, (err, result) =&gt; {
       if (err) {
         res.status(500).json({
           message: err
         });
       } else if (result[0].length == 0) {
         res.status(200).json({
-          message: "There are no stores in database"
+          message: &quot;There are no stores in database&quot;
         });
       } else {
         res.status(200).json({
@@ -136,7 +213,7 @@ module.exports = {
   },
 
   //get all the stores managed by a single user
-  getStoresOfUser: (req, res, next) => {
+  getStoresOfUser: (req, res, next) =&gt; {
     //checks if user is authorized to access information about the store
     //authorization if store id is managed from user id
     var authorized = module.exports.checkAuthorizationRole(
@@ -147,9 +224,9 @@ module.exports = {
 
     if (authorized) {
       //get all orders from specific store where user managing the store is id, by passing the store id
-      var storesOfUser = "CALL get_retailer_stores(?)";
+      var storesOfUser = &quot;CALL get_retailer_stores(?)&quot;;
 
-      pool.query(storesOfUser, req.params.userId, (err, result) => {
+      pool.query(storesOfUser, req.params.userId, (err, result) =&gt; {
         if (err) {
           res.status(500).json({
             message: err
@@ -158,7 +235,7 @@ module.exports = {
         //empty response no customers found
         else if (result[0].length == 0) {
           res.status(200).json({
-            message: "This user has no stores registered"
+            message: &quot;This user has no stores registered&quot;
           });
         }
         //customers retrieved
@@ -170,12 +247,12 @@ module.exports = {
       });
     } else {
       return res.status(401).json({
-        message: "Authentication failed"
+        message: &quot;Authentication failed&quot;
       });
     }
   },
   //get all orders from store
-  getStoreOrders: (req, res, next) => {
+  getStoreOrders: (req, res, next) =&gt; {
     //authorization if store id is managed from user id
     var authorized = module.exports
       .checkAuthorization(
@@ -183,11 +260,11 @@ module.exports = {
         req.userData.role,
         req.params.storeId
       )
-      .then(authorized => {
+      .then(authorized =&gt; {
         if (authorized) {
           //get all customers from store based on their orders
-          var ordersFromStore = "CALL get_store_purchases(?)";
-          pool.query(ordersFromStore, req.params.storeId, (err, result) => {
+          var ordersFromStore = &quot;CALL get_store_purchases(?)&quot;;
+          pool.query(ordersFromStore, req.params.storeId, (err, result) =&gt; {
             console.log(result);
             if (err) {
               res.status(500).json({
@@ -197,7 +274,7 @@ module.exports = {
             //empty response no customers found
             else if (result[0].length == 0) {
               res.status(200).json({
-                message: "This store has no orders"
+                message: &quot;This store has no orders&quot;
               });
             }
             //customers retrieved
@@ -209,13 +286,13 @@ module.exports = {
           });
         } else {
           return res.status(401).json({
-            message: "Authentication failed, user has no access in this store"
+            message: &quot;Authentication failed, user has no access in this store&quot;
           });
         }
       });
   },
   //get all customer details from specifc store
-  getStoreCustomers: (req, res, next) => {
+  getStoreCustomers: (req, res, next) =&gt; {
     //checks if user is authorized to access information about the store
     module.exports
       .checkAuthorization(
@@ -223,12 +300,12 @@ module.exports = {
         req.userData.role,
         req.params.storeId
       )
-      .then(authorized => {
+      .then(authorized =&gt; {
         if (authorized) {
           //get all customers from store based on their orders
-          var customersFromStore = "CALL get_store_customers(?)";
+          var customersFromStore = &quot;CALL get_store_customers(?)&quot;;
 
-          pool.query(customersFromStore, req.params.storeId, (err, result) => {
+          pool.query(customersFromStore, req.params.storeId, (err, result) =&gt; {
             if (err) {
               res.status(500).json({
                 message: err
@@ -237,7 +314,7 @@ module.exports = {
             //empty response no customers found
             else if (result[0].length == 0) {
               res.status(200).json({
-                message: "This store has no customers"
+                message: &quot;This store has no customers&quot;
               });
             }
             //customers retrieved
@@ -249,12 +326,12 @@ module.exports = {
           });
         } else {
           return res.status(401).json({
-            message: "Authentication failed, user has no access in this store"
+            message: &quot;Authentication failed, user has no access in this store&quot;
           });
         }
       });
   },
-  getProductsFromStore: (req, res, next) => {
+  getProductsFromStore: (req, res, next) =&gt; {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
       req.userData.id,
@@ -264,7 +341,7 @@ module.exports = {
     if (authorized) {
     }
   },
-  addNewProduct: (req, res, next) => {
+  addNewProduct: (req, res, next) =&gt; {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
       req.userData.id,
@@ -279,14 +356,14 @@ module.exports = {
         productType: req.body.type
       };
       res.status(200).json({
-        message: "Order was created",
+        message: &quot;Order was created&quot;,
         product: product
       });
     }
   },
 
   //removes an item from the store
-  removeItem: (req, res, next) => {
+  removeItem: (req, res, next) =&gt; {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
       req.userData.id,
@@ -309,20 +386,20 @@ module.exports = {
 
       //Must account for format
       fs.unlink(
-        "product_photos/stores/" + storeId + "/" + rfidItem + ".jpeg",
-        error => {
+        &quot;product_photos/stores/&quot; + storeId + &quot;/&quot; + rfidItem + &quot;.jpeg&quot;,
+        error =&gt; {
           if (error) {
             throw error;
           }
-          console.log("File Deleted From Server");
+          console.log(&quot;File Deleted From Server&quot;);
           res.status(200).json({
-            message: "Photo delete from server"
+            message: &quot;Photo delete from server&quot;
           });
         }
       );
     }
   },
-  updateProduct: (req, res, next) => {
+  updateProduct: (req, res, next) =&gt; {
     var authorized = checkAuthorization(
       req.userData.id,
       req.userData.role,
@@ -341,7 +418,7 @@ module.exports = {
    *                        product detail id. Otherwise the appropraite
    *                        error message.
    */
-  addNewProductDetails: (req, res, next) => {
+  addNewProductDetails: (req, res, next) =&gt; {
     var productDetails = {
       name: req.body.productName,
       product_description: req.body.productDescription,
@@ -355,11 +432,11 @@ module.exports = {
         req.userData.role,
         req.params.storeId
       )
-      .then(authorized => {
+      .then(authorized =&gt; {
         if (authorized) {
           //create new product details entry
           var createProductDetailsEntry =
-            "CALL create_product_details(?, ?, ?)";
+            &quot;CALL create_product_details(?, ?, ?)&quot;;
 
           pool.query(
             createProductDetailsEntry,
@@ -368,7 +445,7 @@ module.exports = {
               productDetails.product_description,
               productDetails.product_details_id
             ],
-            (err, result) => {
+            (err, result) =&gt; {
               if (err) {
                 res.status(500).json({
                   message: err
@@ -384,7 +461,7 @@ module.exports = {
           );
         } else {
           return res.status(401).json({
-            message: "Authentication failed, user has no access in this store"
+            message: &quot;Authentication failed, user has no access in this store&quot;
           });
         }
       });
@@ -395,7 +472,7 @@ module.exports = {
    * @param {[type]}   res  [description]
    * @param {Function} next [description]
    */
-  addProductOptions: (req, res, next) => {
+  addProductOptions: (req, res, next) =&gt; {
     // Check if requesting user is the same as the logged in user.
     var authorized = module.exports
       .checkAuthorizationRole(
@@ -403,17 +480,17 @@ module.exports = {
         req.params.userId,
         req.userData.role
       )
-      .then(authorized => {
+      .then(authorized =&gt; {
         if (authorized) {
           var options;
-          // {'options': "option_group":"name", "option_values": "value"}
+          // {&#x27;options&#x27;: &quot;option_group&quot;:&quot;name&quot;, &quot;option_values&quot;: &quot;value&quot;}
         }
       });
-    // .then(authorized => {
+    // .then(authorized =&gt; {
     // if (authorized) {
     // THINGS TO DO:
     // Before everything the option groups will be sent as a JSON array
-    // of objects [{'Option Group':[values]}]
+    // of objects [{&#x27;Option Group&#x27;:[values]}]
     //
     // As for how to store the values on the server side check this link:
     //  https://stackoverflow.com/questions/33381583/how-to-add-many-values-to-one-key-in-javascript-object
@@ -421,7 +498,7 @@ module.exports = {
     //
     // 1) Check if the option group already exists.
     //    a) if it does then get the id of it.
-    //    b) if it doesn't then create a new option group and get its id.
+    //    b) if it doesn&#x27;t then create a new option group and get its id.
     //
     // 2) Once all option groups are created, enter the values in the options table.
     //
@@ -429,7 +506,7 @@ module.exports = {
     //     //checking if the product details to be associated with the particular product exist
     //     var productDetailsExist = module.exports
     //       .checkIfProductDetailsIdExists(req.params.productDetailsId)
-    //       .then(detailsExist => {
+    //       .then(detailsExist =&gt; {
     //         //the details that will be associated with the product entry to exist
     //         if (detailsExist) {
     //           //if the details do exist then create new product entry and associate product category and product id
@@ -438,11 +515,11 @@ module.exports = {
     //             product_details_id: req.params.productDetailsId,
     //             rfid: req.body.rfid
     //           };
-    //           var createNewProductEntry = "CALL get_store_purchases(?)";
+    //           var createNewProductEntry = &quot;CALL get_store_purchases(?)&quot;;
     //           pool.query(
     //             createNewProductEntry,
     //             req.params.storeId,
-    //             (err, result) => {
+    //             (err, result) =&gt; {
     //               console.log(result);
     //               if (err) {
     //                 res.status(500).json({
@@ -452,7 +529,7 @@ module.exports = {
     //               // //empty response no customers found
     //               // else if (result[0].length == 0) {
     //               //   res.status(200).json({
-    //               //     message: "This store has no orders"
+    //               //     message: &quot;This store has no orders&quot;
     //               //   });
     //               // }
     //               //customers retrieved
@@ -472,20 +549,20 @@ module.exports = {
     //         } else {
     //           return res.status(404).json({
     //             message:
-    //               "Product details id trying to associate with new product does not exist"
+    //               &quot;Product details id trying to associate with new product does not exist&quot;
     //           });
     //         }
     //       });
     //   } else {
     //     return res.status(401).json({
-    //       message: "Authentication failed, user has no access in this store"
+    //       message: &quot;Authentication failed, user has no access in this store&quot;
     //     });
     //   }
     // });
   },
   //after creating a new product detail entry, the options and the product is created
   //productDetails id, rfid, photo, color, size etc are needed
-  addNewProductEntry: (req, res, next) => {
+  addNewProductEntry: (req, res, next) =&gt; {
     //authorization if store id is managed from user id
     var authorized = module.exports
       .checkAuthorization(
@@ -493,12 +570,12 @@ module.exports = {
         req.userData.role,
         req.params.storeId
       )
-      .then(authorized => {
+      .then(authorized =&gt; {
         if (authorized) {
           //checking if the product details to be associated with the particular product exist
           var productDetailsExist = module.exports
             .checkIfProductDetailsIdExists(req.params.productDetailsId)
-            .then(detailsExist => {
+            .then(detailsExist =&gt; {
               //the details that will be associated with the product entry to exist
               if (detailsExist) {
                 //if the details do exist then create new product entry and associate product category and product id
@@ -507,11 +584,11 @@ module.exports = {
                   product_details_id: req.params.productDetailsId,
                   rfid: req.body.rfid
                 };
-                var createNewProductEntry = "CALL get_store_purchases(?)";
+                var createNewProductEntry = &quot;CALL get_store_purchases(?)&quot;;
                 pool.query(
                   createNewProductEntry,
                   req.params.storeId,
-                  (err, result) => {
+                  (err, result) =&gt; {
                     console.log(result);
                     if (err) {
                       res.status(500).json({
@@ -521,7 +598,7 @@ module.exports = {
                     // //empty response no customers found
                     // else if (result[0].length == 0) {
                     //   res.status(200).json({
-                    //     message: "This store has no orders"
+                    //     message: &quot;This store has no orders&quot;
                     //   });
                     // }
                     //customers retrieved
@@ -541,85 +618,23 @@ module.exports = {
               } else {
                 return res.status(404).json({
                   message:
-                    "Product details id trying to associate with new product does not exist"
+                    &quot;Product details id trying to associate with new product does not exist&quot;
                 });
               }
             });
         } else {
           return res.status(401).json({
-            message: "Authentication failed, user has no access in this store"
+            message: &quot;Authentication failed, user has no access in this store&quot;
           });
         }
       });
   },
   //this method adds a door to a shop
-  addDoorToShop: (req, res, next) => {
+  addDoorToShop: (req, res, next) =&gt; {
     //check authorization if retailer can add door, if its his shop or ADMIN
     //if yes add door and
   },
-  doorLogin: (req, res, next) => {},
-
-  /**
-   * `{url}/:storeId/addVoucher`
-   *
-   * The particular method receives voucher details and adds it to the shop
-   *
-   *
-   * @method addVoucherToShop
-   * @param userId
-   * @param isPercentage (boolean to indicate if the voucher is a fixed price or percentage)
-   * @param percentage (percentage of discount)
-   * @param fixed (fixed value of money - if is percentage is False)
-   * @return Whether the voucher was added to DB and the details of the voucher
-   * @throws Error (500) System Failure.
-             Error (500) Voucher could not be added.
-             Error (401) Authentication failed
-
-   */
-  addVoucherToShop: async (req, res, next) => {
-    //TODO uncomment authorization
-    // //authorization if store id is managed from user id
-    // var authorized = module.exports
-    //   .checkAuthorization(
-    //     req.userData.id,
-    //     req.userData.role,
-    //     req.params.storeId
-    //   )
-
-    var authorized = true;
-
-    if (authorized) {
-      //create the voucher code
-      let voucherCode = module.exports.generateVoucherCode();
-
-      var result = await module.exports
-        .addVoucherToShopDB(
-          req.body.percentage,
-          req.body.fixed,
-          req.body.isPercentage,
-          req.params.storeId,
-          voucherCode
-        )
-        .catch(err => {
-          console.log("GOES 1");
-          return res.status(500).json({
-            message: "Error with DB connection when trying to add voucher"
-          });
-        });
-      return;
-      console.log("GOES 2");
-      return res.status(200).json({
-        message: "Product added"
-      });
-    }
-    // else {
-    //   return res.status(401).json({
-    //     message: "Authentication failed, user has no access in this store"
-    //   });
-    // }
-  },
-
-  deleteVoucherCode: (req, res, next) => {},
+  doorLogin: (req, res, next) =&gt; {},
 
   /*
    *****************************************************************************
@@ -633,31 +648,31 @@ module.exports = {
   ******************************************************************************
   */
   //checks if there is id for specifc product detail
-  checkIfProductDetailsIdExists: productDetailId => {
+  checkIfProductDetailsIdExists: productDetailId =&gt; {
     //this function must be async
     return true;
   },
 
   //checks if user id is the same as user ID found in JWT token.
-  checkAuthorizationRole: (userId, userIdJwt, role) => {
+  checkAuthorizationRole: (userId, userIdJwt, role) =&gt; {
     if (userId == userIdJwt || role == role.ADMIN) {
       return true;
     } else {
-      console.log("NOT PASSING");
+      console.log(&quot;NOT PASSING&quot;);
       return false;
     }
   },
   //returns true if specific retailer owns a specific store
-  checkRetailerOwnsStore: async (userId, storeId) => {
-    var getStoreIdBasedOnUserId = "CALL get_store_by_uid(?,?)";
-    return (authorized = await new Promise((resolve, reject) => {
-      pool.query(getStoreIdBasedOnUserId, [userId, storeId], (err, result) => {
+  checkRetailerOwnsStore: async (userId, storeId) =&gt; {
+    var getStoreIdBasedOnUserId = &quot;CALL get_store_by_uid(?,?)&quot;;
+    return (authorized = await new Promise((resolve, reject) =&gt; {
+      pool.query(getStoreIdBasedOnUserId, [userId, storeId], (err, result) =&gt; {
         if (err) {
           resolve(false);
         }
         //empty response
         else if (result[0].length == 0) {
-          console.log("WENT HERE");
+          console.log(&quot;WENT HERE&quot;);
           resolve(false);
         }
         //store id retrieved if user is owner
@@ -670,18 +685,18 @@ module.exports = {
   },
   //decides whether to authorize individual based on an user id owning a shop
   //based on #1 the user id param in URL, #2 user id found in the JWT token, role of user found in JWT and store id found in URL
-  checkAuthorization: async (...args) => {
+  checkAuthorization: async (...args) =&gt; {
     argumentsLength = args.length;
     if (argumentsLength === 3) {
       if (args[1] == role.ADMIN) {
         return true;
       }
       return (authenticationBasedOnStoreOwnership = await new Promise(
-        (resolve, reject) => {
+        (resolve, reject) =&gt; {
           module.exports
             //gets retailer and store id
             .checkRetailerOwnsStore(args[0], args[2])
-            .then(authorizeBasedOnOwnership => {
+            .then(authorizeBasedOnOwnership =&gt; {
               if (authorizeBasedOnOwnership) {
                 resolve(true);
               } else {
@@ -694,15 +709,15 @@ module.exports = {
     if (argumentsLength === 4) {
       if (module.exports.checkAuthorizationRole(args[0], args[1], args[2])) {
         return (authenticationBasedOnStoreOwnership = await new Promise(
-          (resolve, reject) => {
+          (resolve, reject) =&gt; {
             module.exports
               .checkRetailerOwnsStore(args[0], args[3])
-              .then(authorizeBasedOnOwnership => {
+              .then(authorizeBasedOnOwnership =&gt; {
                 if (authorizeBasedOnOwnership) {
-                  console.log("GOES");
+                  console.log(&quot;GOES&quot;);
                   resolve(true);
                 } else {
-                  console.log("GOES FALSE");
+                  console.log(&quot;GOES FALSE&quot;);
                   resolve(false);
                 }
               });
@@ -710,62 +725,24 @@ module.exports = {
         ));
       }
     }
-  },
-
-  generateVoucherCode: () => {
-    let r = Math.random()
-      .toString(36)
-      .substr(2, 5);
-    return r;
-  },
-
-  addVoucherToShopDB: async (
-    percentage,
-    fixed,
-    isPercentage,
-    shopId,
-    couponCode
-  ) => {
-    var added = false;
-    //if its percentage add based on percentage
-    if (isPercentage) {
-      console.log("TIMES");
-      var addPercentageVoucher = "CALL add_percentage_voucher_to_shop(?, ?, ?)";
-      return (result = await new Promise((res, rej) => {
-        pool.query(
-          addPercentageVoucher,
-          [shopId, percentage, 10],
-          (err, result) => {
-            if (err) {
-              return rej(err);
-            } else {
-              console.log("THE PRODUCT WAS ADDED");
-              console.log(result.affectedRows);
-              return res();
-            }
-          }
-        );
-      }));
-    }
-
-    //else add voucher based on fixed value
-    else {
-      var addFixedVoucher = "CALL add_fixed_voucher_to_shop(?, ?, ?)";
-      return (result = await new Promise((res, rej) => {
-        pool.query(
-          addFixedVoucher,
-          [shopId, fixed, couponCode],
-          (err, result) => {
-            if (err) {
-              added = false;
-              return rej(err);
-            } else {
-              added = true;
-              return res();
-            }
-          }
-        );
-      }));
-    }
   }
 };
+
+    </pre>
+</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script src="../assets/vendor/prettify/prettify-min.js"></script>
+<script>prettyPrint();</script>
+<script src="../assets/js/yui-prettify.js"></script>
+<script src="../assets/../api.js"></script>
+<script src="../assets/js/api-filter.js"></script>
+<script src="../assets/js/api-list.js"></script>
+<script src="../assets/js/api-search.js"></script>
+<script src="../assets/js/apidocs.js"></script>
+</body>
+</html>

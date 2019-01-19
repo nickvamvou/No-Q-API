@@ -110,4 +110,11 @@ router.post(
   storeController.doorLogin
 );
 
+//TODO uncomment line 116 (authorization)
+router.post(
+  "/:storeId/addVoucher",
+  // checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.addVoucherToShop
+);
+
 module.exports = router;
