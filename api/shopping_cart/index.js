@@ -21,6 +21,10 @@ router.delete(
   orderController.removeProductFromCart
 );
 
+//add product to user shopping cart
+
+router.post("/:userId/addVoucher", orderController.addVoucherToCart);
+
 //Needs modification
 //this endpoint is called from doors and must be kept private
 //userId is the door id
