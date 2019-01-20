@@ -92,56 +92,62 @@ module.exports = {
       //check if product rfid exists and has not been bought
       var product = await module.exports
         .checkRFIDScanned(productRFID)
+        .then(async product => {
+          //get the user from the url
+          const userId = req.params.userId;
+          var customer_cart = await module.exports
+            .getCartFromCustomer(userId)
+            .then(async customer_cart => {
+              //customer does not have any cart
+              if (customer_cart.length === 0) {
+                //create a cart for the user based on the customer id and the store id
+                var cart_id = await module.exports
+                  .createCustomerCart(userId, product.store_id)
+                  .catch(err => {
+                    console.log(err);
+                    return res.status(500).json({
+                      message: "Could not create new cart for user"
+                    });
+                  });
+                //update the customer cart id so the product can be added to the specific cart
+                customer_cart.cart_id = cart_id;
+              }
+              //TODO ask developer whether I should check again if the product is in any other cart
+              //add the product to customers cart
+              else {
+                await module.exports
+                  .addProductToUsersCart(
+                    product.product_id,
+                    customer_cart.cart_id
+                  )
+                  .then(() => {
+                    //item added to cart
+                    res.status(200).json({
+                      message: product,
+                      cart_id: customer_cart.cart_id
+                    });
+                  })
+                  .catch(err => {
+                    console.log("ALWAYS IN");
+                    return res.status(404).json({
+                      message:
+                        "Customer already has the product in his/her cart"
+                    });
+                  });
+              }
+            })
+            .catch(err => {
+              return res.status(500).json({
+                message: "Error with DB connection"
+              });
+            });
+        })
         .catch(err => {
           //the prduct with the specific RFID does not exist
           return res.status(404).json({
             message: "RFID not found"
           });
         });
-
-      //get the user from the url
-      const userId = req.params.userId;
-      var customer_cart = await module.exports
-        .getCartFromCustomer(userId)
-        .catch(err => {
-          console.log("LOL");
-          return res.status(500).json({
-            message: "Error with DB connection"
-          });
-        });
-      //customer does not have any cart
-      if (customer_cart.length === 0) {
-        //create a cart for the user based on the customer id and the store id
-        var cart_id = await module.exports
-          .createCustomerCart(userId, product.store_id)
-          .catch(err => {
-            console.log(err);
-            return res.status(500).json({
-              message: "Could not create new cart for user"
-            });
-          });
-        //update the customer cart id so the product can be added to the specific cart
-        customer_cart.cart_id = cart_id;
-      }
-      //TODO ask developer whether I should check again if the product is in any other cart
-      //add the product to customers cart
-      else {
-        await module.exports
-          .addProductToUsersCart(product.product_id, customer_cart.cart_id)
-          .then(() => {
-            //item added to cart
-            res.status(200).json({
-              message: product,
-              cart_id: customer_cart.cart_id
-            });
-          })
-          .catch(err => {
-            console.log("ALWAYS IN");
-            return res.status(404).json({
-              message: "Customer already has the product in his/her cart"
-            });
-          });
-      }
     }
   },
 
@@ -176,40 +182,45 @@ module.exports = {
       //get cart id from user
       var customer_cart = await module.exports
         .getCartFromCustomer(userId)
+        .then(async customer_cart => {
+          //customer has no cart
+          if (customer_cart.length === 0) {
+            return res.status(404).json({
+              message: "Cart not found"
+            });
+          } else {
+            //delete product from cart
+            var itemId = req.body.itemId;
+            var result = await module.exports
+              .deleteProductFromCart(itemId, customer_cart.cart_id)
+              .then(async result => {
+                //this means that the item was deleted, as the result is the number of affected rows in the db
+                if (result !== 0) {
+                  return res.status(200).json({
+                    message: "Product successfuly removed from cart",
+                    cart: customer_cart
+                  });
+                }
+                //no item was deleted which means that the item was not found
+                else {
+                  return res.status(404).json({
+                    message:
+                      "Product not removed from cart because it was not found"
+                  });
+                }
+              })
+              .catch(err => {
+                return res.status(500).json({
+                  message: "Could not remove product from users cart"
+                });
+              });
+          }
+        })
         .catch(err => {
           return res.status(500).json({
             message: "Error with DB connection when getting users cart"
           });
         });
-      //customer has no cart
-      if (customer_cart.length === 0) {
-        return res.status(404).json({
-          message: "Cart not found"
-        });
-      } else {
-        //delete product from cart
-        var itemId = req.body.itemId;
-        var result = await module.exports
-          .deleteProductFromCart(itemId, customer_cart.cart_id)
-          .catch(err => {
-            return res.status(500).json({
-              message: "Could not remove product from users cart"
-            });
-          });
-        //this means that the item was deleted, as the result is the number of affected rows in the db
-        if (result !== 0) {
-          return res.status(200).json({
-            message: "Product successfuly removed from cart",
-            cart: customer_cart
-          });
-        }
-        //no item was deleted which means that the item was not found
-        else {
-          return res.status(404).json({
-            message: "Product not removed from cart because it was not found"
-          });
-        }
-      }
     }
   },
 
