@@ -65,7 +65,7 @@ router.delete(
 //   orderController.getUserCompletedOrders
 // );
 
-// Add promo code to user
-router.post("/:userId/addPromoCode", userController.addPromoCode);
+// Add coupon to user
+router.post("/:userId/addVoucher", userController.addVoucher);
 
 module.exports = router;

@@ -608,12 +608,86 @@ module.exports = {
             message: "Error with DB connection when trying to add voucher"
           });
         });
+    } else {
+      return res.status(401).json({
+        message: "Authentication failed, user has no access in this store"
+      });
     }
-    // else {
-    //   return res.status(401).json({
-    //     message: "Authentication failed, user has no access in this store"
-    //   });
-    // }
+  },
+
+  /**
+   *
+   *
+   * The particular method receives voucher id and removes it from the particular store
+   *
+   *
+   *
+   * @return Whether the voucher was deleted from the store
+   * @throws Error (500) System Failure.
+             Error (401) Authentication failed
+             Error (404) voucher was not found in store
+
+
+   */
+
+  deleteVoucherFromShop: async (req, res, next) => {
+    //TODO uncomment authorization
+    // //authorization if store id is managed from user id
+    // var authorized = module.exports
+    //   .checkAuthorization(
+    //     req.userData.id,
+    //     req.userData.role,
+    //     req.params.storeId
+    //   )
+
+    var authorized = true;
+
+    if (authorized) {
+      //check if voucher exists in store
+      await module.exports
+        .checkVoucherExistence(req.params.voucherId, req.params.storeId)
+        .then(async voucher_id => {
+          //if its reaches in this point of the execution then we can delete the voucher from the store
+          try {
+            //remove the particular coupon from all the carts and users
+
+            //delete the coupon from the store
+            await module.exports.deleteVoucherFromStore(
+              req.params.voucherId,
+              req.params.storeId
+            );
+            return res.status(200).json({
+              message: "Voucher deleted successfully"
+            });
+          } catch (err) {
+            console.log("goes 2");
+            return res.status(500).json({
+              message:
+                "Error with DB when trying to delete voucher after checking that the voucher exists"
+            });
+          }
+        })
+        .catch(err => {
+          if (err === 500) {
+            return res.status(500).json({
+              message: "Error with DB when trying to remove the voucher"
+            });
+          } else if (err === 404) {
+            return res.status(404).json({
+              message:
+                "Could not find voucher id to delete in the particular shop"
+            });
+          } else {
+            return res.status(500).json({
+              message: "Error with DB when trying to remove the voucher"
+            });
+          }
+        });
+    } else {
+      return res.status(401).json({
+        message: "Authentication failed, user has no access in this store"
+      });
+    }
   },
 
   deleteVoucherCode: (req, res, next) => {},
@@ -789,5 +863,44 @@ module.exports = {
         );
       }));
     }
+  },
+
+  checkVoucherExistence: async (voucherId, storeId) => {
+    var checkVoucherId = "CALL get_voucher_in_store(?, ?)";
+    return (voucherId = await new Promise((resolve, reject) => {
+      pool.query(checkVoucherId, [storeId, voucherId], (err, result) => {
+        if (err) {
+          reject(500);
+        } else {
+          //no voucher with the id submitted from the user was found
+          if (result[0].length === 0) {
+            reject(404);
+          } else {
+            resolve(result[0].coupon_id);
+          }
+        }
+      });
+    }));
+  },
+
+  deleteVoucherFromStore: async (voucherId, storeId) => {
+    var deleteVoucherFromStore = "CALL delete_voucher_from_store(?, ?)";
+    return (voucherId = await new Promise((resolve, reject) => {
+      pool.query(
+        deleteVoucherFromStore,
+        [storeId, voucherId],
+        (err, result) => {
+          if (err) {
+            console.log(err);
+            console.log("goes here");
+            reject(500);
+          } else {
+            console.log("goes");
+            //the voucher was successfuly deleted
+            resolve();
+          }
+        }
+      );
+    }));
   }
 };

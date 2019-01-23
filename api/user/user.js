@@ -128,7 +128,8 @@ module.exports = {
               //goes
               res.status(200).json({
                 messsage: "Auth success",
-                token: token
+                token: token,
+                userId: passwordAndId[0][0].uid
               });
             } else {
               return res.status(401).json({
@@ -379,6 +380,28 @@ module.exports = {
     //check if promoId exists, if it has been used, if it has been expired etc
   },
 
+  /**
+   *
+   *
+   * The particular method adds a voucher to the user by getting the voucher code
+   *
+   * @param VoucherCode
+   *
+   * @return Whether the addition of the voucher is successful
+   * @throws Error (500) System Failure.
+             Error (404) item not found in Users Cart.
+            Error (404) cart not found.
+   */
+  addVoucher: async (req, res, next) => {
+    //check if the voucher is valid and redeemable, if it is return the voucher id
+    //TODO dont duplicate this method its supposed to be in shopping carts
+    //check if less that the required people have used it
+    //add it to the voucher_user
+    //update the field of the people using setInterval(function () {
+  },
+
+  getVouchersOfUser: (req, res, next) => {},
+
   /*
   ******************************************************************************
                             Helper Functions
@@ -440,5 +463,33 @@ module.exports = {
         expiresIn: "1h"
       }
     ));
+  },
+  checkIfVoucherIsRedeemable: async voucherCode => {
+    var getVoucherIdAndReedemable = "CALL get_voucher_reedemable_and_id(?)";
+    return (cart_id = await new Promise((res, rej) => {
+      pool.query(getVoucherIdAndReedemable, [voucherCode], (err, result) => {
+        if (err) {
+          return rej(err);
+        } else {
+          //wrong voucher code
+          if (result[0].length === 0) {
+            return rej(1);
+          }
+          //reedemable is null
+          if (result[0][0].reedemable === null) {
+            return rej(2);
+          }
+          //its is not redeemable
+          if (result[0][0].reedemable.includes(00)) {
+            return rej(3);
+          }
+          //its redeemable
+          else {
+            return res(result[0][0].coupon_id);
+          }
+          //return the cart id
+        }
+      });
+    }));
   }
 };

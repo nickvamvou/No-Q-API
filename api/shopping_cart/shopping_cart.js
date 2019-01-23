@@ -224,6 +224,7 @@ module.exports = {
     }
   },
 
+  //or by id
   addVoucherToCart: async (req, res, next) => {
     // //check for role and matching user data in URL with matching data with the token
     // var authorized = checkAuthorizationRole(

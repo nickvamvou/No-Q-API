@@ -112,9 +112,16 @@ router.post(
 
 //TODO uncomment line 116 (authorization)
 router.post(
-  "/:storeId/addVoucher",
+  "/:storeId/vouchers/addVoucher",
   // checkAuth.userAuth([role.RETAILER, role.ADMIN]),
   storeController.addVoucherToShop
+);
+
+//TODO uncomment line 116 (authorization)
+router.delete(
+  "/:storeId/vouchers/:voucherId/delete",
+  // checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.deleteVoucherFromShop
 );
 
 module.exports = router;
