@@ -109,7 +109,6 @@ module.exports = {
                   //update the customer cart id so the product can be added to the specific cart
                   customer_cart.cart_id = cart_id;
                 } catch (err) {
-                  console.log(err);
                   return res.status(500).json({
                     message: "Could not create new cart for user"
                   });
