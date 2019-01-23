@@ -100,41 +100,41 @@ module.exports = {
             .then(async customer_cart => {
               //customer does not have any cart
               if (customer_cart.length === 0) {
-                //create a cart for the user based on the customer id and the store id
-                var cart_id = await module.exports
-                  .createCustomerCart(userId, product.store_id)
-                  .catch(err => {
-                    console.log(err);
-                    return res.status(500).json({
-                      message: "Could not create new cart for user"
-                    });
+                try {
+                  //create a cart for the user based on the customer id and the store id
+                  var cart_id = await module.exports.createCustomerCart(
+                    userId,
+                    product.store_id
+                  );
+                  //update the customer cart id so the product can be added to the specific cart
+                  customer_cart.cart_id = cart_id;
+                } catch (err) {
+                  console.log(err);
+                  return res.status(500).json({
+                    message: "Could not create new cart for user"
                   });
-                //update the customer cart id so the product can be added to the specific cart
-                customer_cart.cart_id = cart_id;
+                }
               }
               //TODO ask developer whether I should check again if the product is in any other cart
               //add the product to customers cart
-              else {
-                await module.exports
-                  .addProductToUsersCart(
-                    product.product_id,
-                    customer_cart.cart_id
-                  )
-                  .then(() => {
-                    //item added to cart
-                    res.status(200).json({
-                      message: product,
-                      cart_id: customer_cart.cart_id
-                    });
-                  })
-                  .catch(err => {
-                    console.log("ALWAYS IN");
-                    return res.status(404).json({
-                      message:
-                        "Customer already has the product in his/her cart"
-                    });
+              await module.exports
+                .addProductToUsersCart(
+                  product.product_id,
+                  customer_cart.cart_id
+                )
+                .then(() => {
+                  //item added to cart
+                  res.status(200).json({
+                    message: product,
+                    cart_id: customer_cart.cart_id
                   });
-              }
+                })
+                .catch(err => {
+                  console.log("ALWAYS IN");
+                  return res.status(404).json({
+                    message: "Customer already has the product in his/her cart"
+                  });
+                });
             })
             .catch(err => {
               return res.status(500).json({
