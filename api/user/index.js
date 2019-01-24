@@ -68,4 +68,23 @@ router.delete(
 // Add coupon to user
 router.post("/:userId/addVoucher", userController.addVoucher);
 
+//update users details
+router.patch(
+  "/:userId/editDetails",
+  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.updateUserDetails
+);
+
+router.get(
+  "/:userId/getVouchers",
+  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.getUserVouchers
+);
+
+router.get(
+  "/:userId/addVoucher",
+  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.addVoucherToUser
+);
+
 module.exports = router;

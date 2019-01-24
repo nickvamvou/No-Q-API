@@ -219,6 +219,103 @@ module.exports = {
     });
   },
 
+  /**
+   *
+   *
+   * The particular method updates the details of the user
+   *
+   * @param firstname
+   * @param lastname
+   * @param birthday
+   * @return Whether the update was successful or not
+   * @throws Error (500) System Failure.
+
+   */
+
+  updateUserDetails: async (req, res, next) => {
+    // var authorized = module.exports.checkAuthorization(
+    //   req.params.userId,
+    //   req.userData.id,
+    //   req.userData.role
+    // );
+
+    authorized = true;
+    if (authorized) {
+      try {
+        await module.exports.updateDetails(
+          req.params.userId,
+          req.body.firstname,
+          req.body.lastname,
+          req.body.dob
+        );
+        return res.status(200).json({
+          messsage: "Details were updated"
+        });
+      } catch (err) {
+        return res.status(500).json({
+          messsage: "Could not update the profile details"
+        });
+      }
+    } else {
+      res.status(401).json({
+        message: "User not authorized"
+      });
+    }
+  },
+
+  /**
+   *
+   *
+   * The particular method retrieves all the vouchers of a user
+   *
+   * @return Vouchers of a user
+   * @throws Error (500) System Failure.
+
+   */
+
+  getUserVouchers: async (req, res, next) => {
+    //check that the user has access to the vouchers he/she is requesting
+    // var authorized = module.exports.checkAuthorization(
+    //   req.params.userId,
+    //   req.userData.id,
+    //   req.userData.role
+    // );
+    authorized = true;
+    if (authorized) {
+      try {
+        //retrieve the vouchers of the user
+        var userVouchers = await module.exports.getVouchersFromUser(
+          req.params.userId
+        );
+        return res.status(200).json({
+          vouchers: userVouchers
+        });
+      } catch (err) {
+        console.log(err);
+        return res.status(500).json({
+          messsage: "Could not retrieve users voucher",
+          error: err
+        });
+      }
+    } else {
+      res.status(401).json({
+        message: "User not authorized"
+      });
+    }
+  },
+
+  /**
+   *
+   *
+   * The particular method retrieves all the vouchers of a user
+   *
+   * @return Vouchers of a user
+   * @throws Error (500) System Failure.
+
+   */
+
+  //add voucher to user
+
   /*
   ******************************************************************************
                             Edit/Delete Functions
@@ -393,14 +490,91 @@ module.exports = {
             Error (404) cart not found.
    */
   addVoucher: async (req, res, next) => {
-    //check if the voucher is valid and redeemable, if it is return the voucher id
-    //TODO dont duplicate this method its supposed to be in shopping carts
-    //check if less that the required people have used it
-    //add it to the voucher_user
-    //update the field of the people using setInterval(function () {
-  },
+    //delete the particular user from db
+    // var authorized = module.exports.checkAuthorization(
+    //   req.params.userId,
+    //   req.userData.id,
+    //   req.userData.role
+    // );
 
-  getVouchersOfUser: (req, res, next) => {},
+    authorized = true;
+
+    if (authorized) {
+      //check if the voucher is valid and redeemable, if it is return the voucher id
+      var voucher_id = await module.exports
+        .checkIfVoucherIsRedeemable(req.body.voucherCode)
+        //voucher details includes id of voucher max number allowed to use, how many have used it
+        .then(async voucher_details => {
+          //check if less that the required people have used it
+          var checkBasedOnPeople = module.exports.checkIfVoucherCanBeUsedBasedOnNumberOfPeople(
+            voucher_details.number_of_usage,
+            voucher_details.max_number_allowed
+          );
+
+          if (checkBasedOnPeople) {
+            //add it to the specific user
+            await module.exports
+              .addVoucherToUser(req.params.userId, voucher_details.coupon_id)
+              .then(() => {
+                //remove the number of people using the voucher + the max number of people that can use it and if its redeemable
+                delete voucher_details.number_of_usage;
+                delete voucher_details.max_number_allowed;
+                delete voucher_details.reedemable;
+
+                return res.status(200).json({
+                  message: "Voucher was added to user",
+                  voucher: voucher_details
+                });
+              })
+              .catch(err => {
+                if (err === 0) {
+                  return res.status(404).json({
+                    message: "User already has the particular voucher"
+                  });
+                }
+                return res.status(500).json({
+                  message:
+                    "Voucher cannot be added to user see below for error message",
+                  error: err
+                });
+              });
+          }
+          //cannot use the coupon because has reached maximum people to use
+          //TODO make it unredeemable
+          else {
+            return res.status(404).json({
+              message:
+                "Voucher cannot be added, as it has been used from too many users"
+            });
+          }
+        })
+        .catch(err => {
+          if (err === 1) {
+            return res.status(404).json({
+              message: "Wrong voucher code"
+            });
+          } else if (err === 2) {
+            return res.status(404).json({
+              message: "Redeemable of voucher is set to null"
+            });
+          } else {
+            return res.status(404).json({
+              message: "Voucher is currently not redeemable"
+            });
+          }
+        });
+    } else {
+      return res.status(401).json({
+        message: "Authentication Failed"
+      });
+    }
+
+    //check if the voucher is valid and redeemable, if it is return the voucher id
+
+    //TODO dont duplicate this method its supposed to be in shopping carts
+
+    //add it to the voucher_user
+  },
 
   /*
   ******************************************************************************
@@ -430,6 +604,25 @@ module.exports = {
     } else {
       return false;
     }
+  },
+
+  //updates the details of a specific user
+  updateDetails: async (userId, firstname, lastname, birthday) => {
+    var updateUserDetails = "CALL update_user_details(?,?,?,?)";
+    return await new Promise((res, rej) => {
+      pool.query(
+        updateUserDetails,
+        [userId, firstname, lastname, birthday],
+        (err, result) => {
+          if (err) {
+            console.log("ERROR");
+            return rej();
+          } else {
+            return res();
+          }
+        }
+      );
+    });
   },
 
   // Checks if password provided by user is the same as in the database
@@ -465,12 +658,14 @@ module.exports = {
     ));
   },
   checkIfVoucherIsRedeemable: async voucherCode => {
-    var getVoucherIdAndReedemable = "CALL get_voucher_reedemable_and_id(?)";
+    var getVoucherIdAndReedemable =
+      "CALL get_voucher_reedemable_and_id_and_people_using(?)";
     return (cart_id = await new Promise((res, rej) => {
       pool.query(getVoucherIdAndReedemable, [voucherCode], (err, result) => {
         if (err) {
           return rej(err);
         } else {
+          console.log(result[0]);
           //wrong voucher code
           if (result[0].length === 0) {
             return rej(1);
@@ -478,18 +673,59 @@ module.exports = {
           //reedemable is null
           if (result[0][0].reedemable === null) {
             return rej(2);
-          }
-          //its is not redeemable
+          } //its is not redeemable
           if (result[0][0].reedemable.includes(00)) {
             return rej(3);
           }
           //its redeemable
           else {
-            return res(result[0][0].coupon_id);
+            return res(result[0][0]);
           }
-          //return the cart id
         }
       });
     }));
+  },
+
+  getVouchersFromUser: async userId => {
+    var getUserVouchers = "CALL get_user_vouchers(?)";
+    return await new Promise((res, rej) => {
+      pool.query(getUserVouchers, [userId], (err, result) => {
+        if (err) {
+          return rej(err);
+        } else {
+          return res(result[0]);
+        }
+      });
+    });
+  },
+
+  addVoucherToUser: async (userId, voucherId) => {
+    var addVoucherToUserProcedure = "CALL add_voucher_to_user(?, ?)";
+    return await new Promise((res, rej) => {
+      pool.query(
+        addVoucherToUserProcedure,
+        [userId, voucherId],
+        (err, result) => {
+          if (err) {
+            if (err.errno == 1062) {
+              return rej(0);
+            }
+            return rej(err);
+          } else {
+            return res();
+          }
+        }
+      );
+    });
+  },
+
+  checkIfVoucherCanBeUsedBasedOnNumberOfPeople: (
+    numberUsingVoucher,
+    maxNumberAllowed
+  ) => {
+    if (numberUsingVoucher >= maxNumberAllowed) {
+      return false;
+    }
+    return true;
   }
 };

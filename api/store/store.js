@@ -618,9 +618,7 @@ module.exports = {
   /**
    *
    *
-   * The particular method receives voucher id and removes it from the particular store
-   *
-   *
+   * The particular method receives voucher id and removes it from the particular store by updating the redeemable field
    *
    * @return Whether the voucher was deleted from the store
    * @throws Error (500) System Failure.

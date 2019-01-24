@@ -486,8 +486,6 @@ module.exports = {
   },
 
   addVoucherToCartDB: async (voucher_id, cartId) => {
-    console.log("VOUCHER ID : " + voucher_id);
-    console.log("Cart id : " + cartId);
     var addVoucherToUserCart = "CALL add_voucher_to_cart(?,?)";
     return await new Promise((res, rej) => {
       pool.query(addVoucherToUserCart, [voucher_id, cartId], (err, result) => {
