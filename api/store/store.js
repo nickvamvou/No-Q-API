@@ -598,13 +598,13 @@ module.exports = {
           voucherCode
         )
         .then(voucher_details => {
-          console.log("ADDED");
           return res.status(200).json({
             message: "Voucher Added",
             voucher: voucher_details
           });
         })
         .catch(err => {
+          console.log(err);
           return res.status(500).json({
             message: "Error with DB connection when trying to add voucher"
           });
@@ -790,7 +790,7 @@ module.exports = {
     //if its percentage add based on percentage
 
     var addPercentageVoucher = "CALL add_voucher_to_shop(?, ?, ?, ?)";
-    result = await new Promise((res, rej) => {
+    return (voucher_details = await new Promise((res, rej) => {
       pool.query(
         addPercentageVoucher,
         [shopId, value, couponCode, isPercentage],
@@ -813,12 +813,11 @@ module.exports = {
               return rej(err);
             }
           } else {
-            console.log(result[0][0]);
-            return res(1);
+            return res(result[0][0]);
           }
         }
       );
-    });
+    }));
   },
   //checks both the existence of the voucher and also whether the voucher is redeemable already or not
   checkVoucherExistenceAndRedeemability: async (voucherId, storeId) => {
