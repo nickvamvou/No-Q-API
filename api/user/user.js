@@ -580,6 +580,7 @@ module.exports = {
           }
         })
         .catch(err => {
+          console.log(err);
           if (err === 1) {
             return res.status(404).json({
               message: "Wrong voucher code"

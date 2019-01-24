@@ -593,14 +593,15 @@ module.exports = {
       var result = await module.exports
         .addVoucherToShopDB(
           req.body.percentage,
-          req.body.fixed,
           req.body.isPercentage,
           req.params.storeId,
           voucherCode
         )
-        .then(() => {
+        .then(voucher_details => {
+          console.log("ADDED");
           return res.status(200).json({
-            message: "Voucher Added"
+            message: "Voucher Added",
+            voucher: voucher_details
           });
         })
         .catch(err => {
@@ -785,79 +786,39 @@ module.exports = {
     return r;
   },
 
-  addVoucherToShopDB: async (
-    percentage,
-    fixed,
-    isPercentage,
-    shopId,
-    couponCode
-  ) => {
-    var added = false;
+  addVoucherToShopDB: async (value, isPercentage, shopId, couponCode) => {
     //if its percentage add based on percentage
-    if (isPercentage) {
-      var addPercentageVoucher = "CALL add_percentage_voucher_to_shop(?, ?, ?)";
-      result = await new Promise((res, rej) => {
-        console.log(couponCode);
-        pool.query(
-          addPercentageVoucher,
-          [shopId, percentage, couponCode],
-          (err, result) => {
-            console.log("checker");
-            if (err) {
-              //if there is already a voucher with the same code repeat the addition with different code
-              if (err.errno == 1062) {
-                console.log("error");
-                couponCode = module.exports.generateVoucherCode;
-                addVoucherToShopDB(
-                  percentage,
-                  fixed,
-                  isPercentage,
-                  shopId,
-                  couponCode
-                );
-              } else {
-                console.log("return error");
-                return rej(err);
-              }
-            } else {
-              return res();
-            }
-          }
-        );
-      });
-    }
 
-    //else add voucher based on fixed value
-    else {
-      var addFixedVoucher = "CALL add_fixed_voucher_to_shop(?, ?, ?)";
-      return (result = await new Promise((res, rej) => {
-        pool.query(
-          addFixedVoucher,
-          [shopId, fixed, couponCode],
-          (err, result) => {
-            if (err) {
-              //if there is already a voucher with the same code repeat the addition with different code
-              if (err.errno == 1062) {
-                console.log("error");
-                couponCode = module.exports.generateVoucherCode;
-                addVoucherToShopDB(
-                  percentage,
-                  fixed,
-                  isPercentage,
-                  shopId,
-                  couponCode
-                );
-              } else {
-                console.log("return error");
-                return rej(err);
-              }
+    var addPercentageVoucher = "CALL add_voucher_to_shop(?, ?, ?, ?)";
+    result = await new Promise((res, rej) => {
+      pool.query(
+        addPercentageVoucher,
+        [shopId, value, couponCode, isPercentage],
+        (err, result) => {
+          console.log("checker");
+          if (err) {
+            //if there is already a voucher with the same code repeat the addition with different code
+            if (err.errno == 1062) {
+              couponCode = module.exports.generateVoucherCode;
+              //recursion
+              addVoucherToShopDB(
+                percentage,
+                fixed,
+                isPercentage,
+                shopId,
+                couponCode
+              );
             } else {
-              return res();
+              console.log(err);
+              return rej(err);
             }
+          } else {
+            console.log(result[0][0]);
+            return res(1);
           }
-        );
-      }));
-    }
+        }
+      );
+    });
   },
   //checks both the existence of the voucher and also whether the voucher is redeemable already or not
   checkVoucherExistenceAndRedeemability: async (voucherId, storeId) => {
