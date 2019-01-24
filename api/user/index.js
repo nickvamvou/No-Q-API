@@ -75,6 +75,13 @@ router.patch(
   userController.updateUserDetails
 );
 
+//returns the details of the user (firstname, lastname, dob)
+router.get(
+  "/:userId/details",
+  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.getUserDetails
+);
+
 router.get(
   "/:userId/getVouchers",
   // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),

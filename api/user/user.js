@@ -469,12 +469,43 @@ module.exports = {
     }
   },
 
-  // Add a promo code to a Shopper.
-  addPromoCode: (req, res, next) => {
-    const userId = req.params.userId;
-    const promoId = req.body.promoId;
-
-    //check if promoId exists, if it has been used, if it has been expired etc
+  /**
+   *
+   *
+   * The particular method returns the users details
+   *
+   *
+   * @return Whether the addition of the voucher is successful
+   * @throws Error (500) System Failure.
+             Error (404) item not found in Users Cart.
+            Error (404) cart not found.
+   */
+  getUserDetails: async (req, res, next) => {
+    // var authorized = module.exports.checkAuthorization(
+    //   req.params.userId,
+    //   req.userData.id,
+    //   req.userData.role
+    // );
+    var authorized = true;
+    if (authorized) {
+      await module.exports
+        .getUserDetailsFromDb(req.params.userId)
+        .then(userDetails => {
+          res.status(200).json({
+            message: "User details retrieved",
+            user: userDetails
+          });
+        })
+        .catch(err => {
+          res.status(500).json({
+            message: "Could not retrieve user details"
+          });
+        });
+    } else {
+      return res.status(401).json({
+        message: "Authentication Failed"
+      });
+    }
   },
 
   /**
@@ -716,6 +747,20 @@ module.exports = {
           }
         }
       );
+    });
+  },
+
+  getUserDetailsFromDb: async userId => {
+    var getUserDetails = "CALL get_customer_details_by_id(?)";
+    return await new Promise((res, rej) => {
+      pool.query(getUserDetails, [userId], (err, result) => {
+        if (err) {
+          return rej(err);
+        } else {
+          console.log(result[0]);
+          return res(result[0][0]);
+        }
+      });
     });
   },
 
