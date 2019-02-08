@@ -1,9 +1,16 @@
 //This defines the user controller
+const createHttpError = require("http-errors");
 const bcrypt = require("bcrypt");
+const to = require('await-to-js').default;
 const pool = require("../../config/db_connection");
+const cacheRegister = require('../../config/cache_register');
 const role = require("./user-role");
 const jwt = require("jsonwebtoken");
 const key = require("../../config/jwt_s_key");
+const utils = require('../utils');
+
+const { SqlError } = utils;
+
 
 module.exports = {
   /*
@@ -506,6 +513,108 @@ module.exports = {
         message: "Authentication Failed"
       });
     }
+  },
+
+  /**
+   *  This particular method initiates the process of resetting password for a user.
+   *
+   * @param req
+   * @param res
+   * @param next
+   */
+  initiatePasswordReset: async ({ body: { email } }, res, next) => {
+    const userExistsQuery = "CALL get_user_id_by_email(?)";
+    const [userQueryError, userQueryResult] = await to(pool.promiseQuery(userExistsQuery, [email]));
+
+    if (userQueryError) {
+      return next(createHttpError(
+        500, new SqlError(userQueryError))
+      );
+    }
+
+    const [userResultSet] = userQueryResult;
+
+    if (!userResultSet.length) {
+      return next(createHttpError(
+        404, `Unfortunately, '${email}' is not associated with any account. Please sign up to continue`)
+      );
+    }
+
+    const token = jwt.sign({ email }, key.jwt_key, { expiresIn: '1h' });
+    cacheRegister.set(`forgot-pass-token-${email}`, token, 'EX', 60 * 60);
+
+    const mailOptions = {
+      from: 'test@no-q.io',
+      to: 'bolutife.lawrence@no-q.io',
+      subject: 'Password Reset',
+      templateName: 'forgot-password'
+    };
+
+    const [mailerError] = await to(utils.sendEmail(mailOptions));
+
+    if (mailerError) {
+      return next(createHttpError(
+        500, mailerError.message)
+      );
+    }
+
+    return res.status(200).json({
+      message: 'A link to reset your password has been sent to your email',
+    });
+  },
+
+  /**
+   *  This particular method resets password for a user.
+   *
+   * @param req
+   * @param res
+   * @param next
+   */
+  resetPassword: async ({ body: { token: userToken, newPassword } }, res, next) => {
+    const decodedData = jwt.verify(userToken, key.jwt_key);
+
+    if (!decodedData) {
+      return next(createHttpError(
+        404, 'Token isn\'t available anymore'
+      ));
+    }
+
+    const [cacheRegisterErr, token] = await to(cacheRegister.promiseGet(`forgot-pass-token-${decodedData.email}`));
+
+    if (cacheRegisterErr) {
+      return next(createHttpError(
+        500, cacheRegisterErr
+      ));
+    }
+
+    if (token !== userToken) {
+      return next(createHttpError(
+        400, 'Provided token doesn\'t match saved token'
+      ));
+    }
+
+    const [passHashErr, hashedPass] = await to(this.hashPassword(newPassword));
+
+    if (passHashErr) {
+      return next(createHttpError(
+        500, passHashErr
+      ));
+    }
+
+    const changeUserPassQuery = `CALL change_user_password_by_email(?)`;
+    const [userQueryError] = await to(pool.promiseQuery(changeUserPassQuery, hashedPass));
+
+    if (userQueryError) {
+      return next(createHttpError(
+        500, new SqlError(userQueryError))
+      );
+    }
+
+    // TODO: Send password reset confirmation email here
+
+    return res.status(200).json({
+      message: 'Your password has been changed successfully',
+    });
   },
 
   /**

@@ -37,6 +37,22 @@ router.patch(
   userController.changePassword
 );
 
+/**
+ * Initiate password reset process
+ */
+router.post(
+    "/forgot-password",
+    userController.initiatePasswordReset,
+);
+
+/**
+ * Resets user password
+ */
+router.post(
+    "/reset-password",
+    userController.resetPassword,
+);
+
 // Change user passwrod by an Administrator.
 router.patch(
   "/:userId/change-password/admin",

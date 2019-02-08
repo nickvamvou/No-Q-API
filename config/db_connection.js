@@ -1,6 +1,7 @@
-var mysql = require("mysql");
-const util = require("util");
-var pool = mysql.createPool({
+const mysql = require("mysql");
+
+
+const pool = mysql.createPool({
   connectionLimit: 10,
   host: "noqdatabase.cbwekgz75jvj.eu-west-2.rds.amazonaws.com",
   user: "noq_admin",
@@ -8,6 +9,7 @@ var pool = mysql.createPool({
   port: 3306,
   database: "masterdb"
 });
+
 pool.getConnection((err, connection) => {
   if (err) {
     if (err.code === "PROTOCOL_CONNECTION_LOST") {
@@ -33,7 +35,18 @@ pool.getConnection((err, connection) => {
   return;
 });
 
-// // Promisify for Node.js async/await.
-// pool.query = util.promisify(pool.query);
+// Promise-based version of pool.query that can be easily reused.
+pool.promiseQuery = (queryStr, parameters) => {
+  return new Promise((resolve, reject) => {
+    pool.query(queryStr, parameters, (err, result) => {
+      if (err) {
+        reject(err);
+      } else {
+        resolve(result);
+      }
+    })
+  })
+};
+
 
 module.exports = pool;
