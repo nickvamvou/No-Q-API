@@ -545,7 +545,7 @@ module.exports = {
 
     const mailOptions = {
       from: 'test@no-q.io',
-      to: 'bolutife.lawrence@no-q.io',
+      to: email,
       subject: 'Password Reset',
       templateName: 'forgot-password'
     };
