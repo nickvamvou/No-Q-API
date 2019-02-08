@@ -1,5 +1,6 @@
 const redis = require('redis');
 const client = redis.createClient();
+const util = require('util');
 
 
 client.on('connect', () => {
@@ -10,15 +11,7 @@ client.on('error', (err) => {
   console.log(`Something went wrong ${err}'`);
 });
 
-client.promiseGet = (key) => new Promise((resolve, reject) => {
-  client.get(key, (error, result) => {
-    if (error) {
-      return reject(error);
-    }
-
-    resolve(result);
-  });
-});
+client.get = util.promisify(client.get);
 
 
 module.exports = client;
