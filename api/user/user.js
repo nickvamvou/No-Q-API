@@ -539,7 +539,7 @@ module.exports = {
       ));
     }
 
-    const token = jwt.sign({ email }, key.jwt_key);
+    const token = jwt.sign({ email }, key.jwt_key, { expiresIn: '1h' });
     cacheRegister.set(`forgot-pass-token-${email}`, token, 'EX', 60 * 60);
 
     const mailOptions = {
