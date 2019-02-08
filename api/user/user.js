@@ -4,6 +4,7 @@ const bcrypt = require("bcrypt");
 const to = require('await-to-js').default;
 const pool = require("../../config/db_connection");
 const cacheRegister = require('../../config/cache_register');
+const mailer = require('../../config/mailer');
 const role = require("./user-role");
 const jwt = require("jsonwebtoken");
 const key = require("../../config/jwt_s_key");
@@ -523,39 +524,39 @@ module.exports = {
    * @param next
    */
   initiatePasswordReset: async ({ body: { email } }, res, next) => {
-    const userExistsQuery = "CALL get_user_id_by_email(?)";
-    const [userQueryError, userQueryResult] = await to(pool.promiseQuery(userExistsQuery, [email]));
+    const userQuery = "CALL get_user_id_by_email(?)";
+    const [userQueryError, userQueryResult] = await to(pool.promiseQuery(userQuery, [email]));
 
     if (userQueryError) {
-      return next(createHttpError(
-        500, new SqlError(userQueryError))
-      );
+      return next(createHttpError(500, new SqlError(userQueryError)));
     }
 
     const [userResultSet] = userQueryResult;
 
     if (!userResultSet.length) {
       return next(createHttpError(
-        404, `Unfortunately, '${email}' is not associated with any account. Please sign up to continue`)
-      );
+        404, `Unfortunately, '${email}' is not associated with any account. Please sign up to continue`
+      ));
     }
 
-    const token = jwt.sign({ email }, key.jwt_key, { expiresIn: '1h' });
+    const token = jwt.sign({ email }, key.jwt_key);
     cacheRegister.set(`forgot-pass-token-${email}`, token, 'EX', 60 * 60);
 
     const mailOptions = {
-      from: 'test@no-q.io',
       to: email,
-      subject: 'Password Reset',
-      templateName: 'forgot-password'
+      from: 'no-q@info.io',
+      template: 'forgot-password',
+      subject: 'Password help has arrived!',
+      context: {
+        url: `http://localhost:3000/auth/reset-password?token=${token}`,
+        name: email,
+      }
     };
 
-    const [mailerError] = await to(utils.sendEmail(mailOptions));
+    const [mailerError] = await to(mailer.sendEmail(mailOptions));
 
     if (mailerError) {
-      return next(createHttpError(
-        500, mailerError.message)
-      );
+      return next(createHttpError(500, mailerError.message));
     }
 
     return res.status(200).json({
@@ -574,43 +575,48 @@ module.exports = {
     const decodedData = jwt.verify(userToken, key.jwt_key);
 
     if (!decodedData) {
-      return next(createHttpError(
-        404, 'Token isn\'t available anymore'
-      ));
+      return next(createHttpError(404, 'Token not available'));
     }
 
-    const [cacheRegisterErr, token] = await to(cacheRegister.promiseGet(`forgot-pass-token-${decodedData.email}`));
+    const { email } = decodedData;
+    const [cacheRegisterErr, token] = await to(cacheRegister.get(`forgot-pass-token-${email}`));
 
     if (cacheRegisterErr) {
-      return next(createHttpError(
-        500, cacheRegisterErr
-      ));
+      return next(createHttpError(500, cacheRegisterErr));
     }
 
     if (token !== userToken) {
-      return next(createHttpError(
-        400, 'Provided token doesn\'t match saved token'
-      ));
+      return next(createHttpError(400, 'Provided token doesn\'t match saved token'));
     }
 
     const [passHashErr, hashedPass] = await to(this.hashPassword(newPassword));
 
     if (passHashErr) {
-      return next(createHttpError(
-        500, passHashErr
-      ));
+      return next(createHttpError(500, passHashErr));
     }
 
     const changeUserPassQuery = `CALL change_user_password_by_email(?)`;
-    const [userQueryError] = await to(pool.promiseQuery(changeUserPassQuery, hashedPass));
+    const [userQueryError] = await to(pool.promiseQuery(changeUserPassQuery, [email, hashedPass]));
 
     if (userQueryError) {
-      return next(createHttpError(
-        500, new SqlError(userQueryError))
-      );
+      return next(createHttpError(500, new SqlError(userQueryError)));
     }
 
-    // TODO: Send password reset confirmation email here
+    const mailOptions = {
+      to: email,
+      from: 'no-q@info.io',
+      template: 'password-reset-success',
+      subject: 'Your password has been changed successfully',
+      context: {
+        name: email,
+      }
+    };
+
+    const [mailerError] = await to(mailer.sendEmail(mailOptions));
+
+    if (mailerError) {
+      return next(createHttpError(500, mailerError));
+    }
 
     return res.status(200).json({
       message: 'Your password has been changed successfully',
