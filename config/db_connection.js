@@ -12,6 +12,12 @@ const pool = mysql.createPool({
 
 pool.getConnection((err, connection) => {
   if (err) {
+    if (err.code === "ENOTFOUND") {
+      console.error("Database not found.");
+    }
+    if (err.code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
+      console.error('Database Handshake inactivity timeout.');
+    }
     if (err.code === "PROTOCOL_CONNECTION_LOST") {
       console.error("Database connection was closed.");
     }
@@ -22,6 +28,7 @@ pool.getConnection((err, connection) => {
       console.error("Database connection was refused.");
     }
   }
+
   if (connection) {
     // var sql = "CALL create_customer(?,?)";
     // var email = "lol";
@@ -32,6 +39,7 @@ pool.getConnection((err, connection) => {
 
     connection.release();
   }
+
   return;
 });
 

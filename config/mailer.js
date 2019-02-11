@@ -1,9 +1,14 @@
+/**
+ * Mailer module
+ */
+
 const nodemailer = require('nodemailer');
 const hbs = require('nodemailer-express-handlebars');
 const util = require('util');
 const path = require('path');
 
 
+// Create transporter for sending emails
 const transporter = nodemailer.createTransport(process.env.NODE_MAILER_CONN_URL);
 
 const handlebarsOptions = {
@@ -12,6 +17,7 @@ const handlebarsOptions = {
   extName: '.html'
 };
 
+// Setup nodemailer's transporter to use handlebars as a template engine
 transporter.use('compile', hbs(handlebarsOptions));
 
 transporter.sendEmail = util.promisify(transporter.sendMail);

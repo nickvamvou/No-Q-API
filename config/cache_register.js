@@ -1,7 +1,13 @@
+/**
+ * Cache register powered by REDIS
+ */
+
 const redis = require('redis');
-const client = redis.createClient();
 const util = require('util');
 
+
+// Create new client
+const client = redis.createClient();
 
 client.on('connect', () => {
   console.log('Redis client connected');
