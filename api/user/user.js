@@ -9,6 +9,7 @@ const role = require("./user-role");
 const jwt = require("jsonwebtoken");
 const key = require("../../config/jwt_s_key");
 const utils = require('../utils');
+const { initiateResetPassword } = require('./helpers');
 
 const { SqlError } = utils;
 
@@ -517,68 +518,84 @@ module.exports = {
   },
 
   /**
-   *  This particular method initiates the process of resetting password for a user.
+   *  This particular method initiates the process of resetting password for a customer.
    *
    * @param req
    * @param res
    * @param next
    */
-  initiatePasswordReset: async ({ body: { email } }, res, next) => {
-    const userQuery = "CALL get_user_id_by_email(?)";
-    const [userQueryError, userQueryResult] = await to(pool.promiseQuery(userQuery, [email]));
+  initiateIndividualPassReset: async (req, res, next) => {
+    const { body: { email } } = req;
+    const individualUserQuery = "CALL get_individual_details_by_email(?)";
+    const [queryError, queryResult] = await to(pool.promiseQuery(individualUserQuery, [email]));
 
-    if (userQueryError) {
-      return next(createHttpError(500, new SqlError(userQueryError)));
+    if (queryError) {
+      return next(createHttpError(500, new SqlError(queryError)));
     }
 
-    const [userResultSet] = userQueryResult;
+    const [resultSet] = queryResult;
 
-    if (!userResultSet.length) {
+    if (!resultSet.length) {
       return next(createHttpError(
-        404, `Unfortunately, '${email}' is not associated with any account. Please sign up to continue`
+        404, `Unfortunately, '${email}' is not associated with any account.`
       ));
     }
 
-    const token = jwt.sign({ email }, key.jwt_key, { expiresIn: '1h' });
-    cacheRegister.set(`forgot-pass-token-${email}`, token, 'EX', 60 * 60);
+    const [{ first_name }] = resultSet;
 
-    const mailOptions = {
-      to: email,
-      from: 'no-q@info.io',
-      template: 'forgot-password',
-      subject: 'Password help has arrived!',
-      context: {
-        url: `http://localhost:3000/auth/reset-password?token=${token}`,
-        name: email,
-      }
-    };
+    req.referenceName = first_name;
 
-    const [mailerError] = await to(mailer.sendEmail(mailOptions));
-
-    if (mailerError) {
-      return next(createHttpError(500, mailerError.message));
-    }
-
-    return res.status(200).json({
-      message: 'A link to reset your password has been sent to your email',
-    });
+    initiateResetPassword(req, res, next);
   },
 
   /**
-   *  This particular method resets password for a user.
+   *  This particular method initiates the process of resetting password for a retailer.
+   *
+   * @param req
+   * @param res
+   * @param next
+   */
+  initiateRetailerPassReset: async (req, res, next) => {
+    const { body: { email } } = req;
+    const retailerQuery = "CALL get_retailer_details_by_email(?)";
+    const [queryError, queryResult] = await to(pool.promiseQuery(retailerQuery, [email]));
+
+    if (queryError) {
+      return next(createHttpError(500, new SqlError(queryError)));
+    }
+
+    const [resultSet] = queryResult;
+
+    if (!resultSet.length) {
+      return next(createHttpError(
+        404, `Unfortunately, '${email}' is not associated with any account.`
+      ));
+    }
+
+    const [{ brand_name }] = resultSet;
+
+    req.referenceName = brand_name;
+
+    initiateResetPassword(req, res, next);
+  },
+
+  /**
+   *  This particular method resets password for any user type;
+   *  provided that the process has being initiated not more than an hour
+   *  before doing this.
    *
    * @param req
    * @param res
    * @param next
    */
   resetPassword: async ({ body: { token: userToken, newPassword } }, res, next) => {
-    const decodedData = jwt.verify(userToken, key.jwt_key);
+    const decodedData = jwt.verify(userToken, key.jwt_key); // TODO: Make this async
 
     if (!decodedData) {
       return next(createHttpError(404, 'Token not available'));
     }
 
-    const { email } = decodedData;
+    const { email, referenceName } = decodedData;
     const [cacheRegisterErr, token] = await to(cacheRegister.get(`forgot-pass-token-${email}`));
 
     if (cacheRegisterErr) {
@@ -608,7 +625,7 @@ module.exports = {
       template: 'password-reset-success',
       subject: 'Your password has been changed successfully',
       context: {
-        name: email,
+        name: referenceName,
       }
     };
 

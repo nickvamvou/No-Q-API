@@ -1,15 +1,10 @@
-var express = require("express");
-var router = express.Router();
-const bcrypt = require("bcrypt");
-//for token exchange between client and server
-const jwt = require("jsonwebtoken");
-//this is the key used to sign the jwt
-const key = require("../../config/jwt_s_key");
+const express = require("express");
+const router = express.Router();
 const role = require("./user-role");
 const userController = require("./user");
 const checkAuth = require("../middleware/check-auth");
 const retailerPath = require("../../config/private_routes");
-const pool = "../../config/db_connection";
+
 
 // Sign up a Shopper
 router.post("/signup/shopper", userController.signupShopper);
@@ -38,11 +33,19 @@ router.patch(
 );
 
 /**
- * Initiate password reset process
+ * Initiate password reset process for a customer
  */
 router.post(
-    "/forgot-password",
-    userController.initiatePasswordReset,
+  "/forgot-password/customer",
+  userController.initiateIndividualPassReset,
+);
+
+/**
+ * Initiate password reset process for a retailer
+ */
+router.post(
+  "/forgot-password/retailer",
+  userController.initiateRetailerPassReset,
 );
 
 /**
