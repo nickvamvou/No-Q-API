@@ -4,11 +4,10 @@ var path = require("path");
 var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 var bodyParser = require("body-parser");
-var pool = require("./config/db_connection.js");
 var cors = require("cors");
+
 var indexRouter = require("./routes/index");
 var productsRouter = require("./api/product/index");
-
 var storeRouter = require("./api/store/index");
 var usersRouter = require("./api/user/index");
 var cartRouter = require("./api/shopping_cart/index");
