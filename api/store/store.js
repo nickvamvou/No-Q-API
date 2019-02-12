@@ -1,8 +1,13 @@
-var fs = require("fs");
+const to = require('await-to-js').default;
+const createHttpError = require("http-errors");
+const fs = require("fs");
+
 const pool = require("../../config/db_connection");
 const role = require("../user/user-role");
-const jwt = require("jsonwebtoken");
-const key = require("../../config/jwt_s_key");
+const utils = require('../utils');
+
+const { SqlError } = utils;
+
 
 /**
  * This class contains code describing the shop functionality.
@@ -332,6 +337,7 @@ module.exports = {
       //edit product information
     }
   },
+
   /**
    * Creates a new product detail and returns the id of the created row.
    * @param req  Should include userData{id, role}, storeId as a parameter
@@ -341,12 +347,22 @@ module.exports = {
    *                        product detail id. Otherwise the appropraite
    *                        error message.
    */
-  addNewProductDetails: (req, res, next) => {
-    var productDetails = {
-      name: req.body.productName,
-      product_description: req.body.productDescription,
-      product_retailer_id: req.body.productRetailerId
-    };
+  addNewProductDetails: async (req, res, next) => {
+    const createProductDetailsQuery = 'CALL create_product_details(?)';
+    const [queryError, queryResult] = await to(pool.promiseQuery(createProductDetailsQuery, [
+      req.body.name,
+      req.body.weight,
+      req.body.stock,
+      req.body.description,
+      req.body.retailerProductId,
+    ]));
+
+    if (queryError) {
+      return next(createHttpError(500, new SqlError(queryError)));
+    }
+
+    res.status(200).json(queryResult);
+  },
 
     //checks if user is authorized to access information about the store
     module.exports

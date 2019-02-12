@@ -1,8 +1,9 @@
-var express = require("express");
-var router = express.Router();
+const express = require("express");
+const router = express.Router();
 const productController = require("./product");
 const checkAuth = require("../middleware/check-auth");
 const role = require("../user/user-role");
+
 
 // Get all the products.
 router.get(
@@ -31,5 +32,6 @@ router.patch(
   checkAuth.userAuth([role.ADMIN]),
   productController.deleteProduct
 );
+
 
 module.exports = router;

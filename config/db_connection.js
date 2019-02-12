@@ -1,4 +1,5 @@
 const mysql = require("mysql");
+const util = require('util');
 
 
 const pool = mysql.createPool({
@@ -44,17 +45,7 @@ pool.getConnection((err, connection) => {
 });
 
 // Promise-based version of pool.query that can be easily reused.
-pool.promiseQuery = (queryStr, parameters) => {
-  return new Promise((resolve, reject) => {
-    pool.query(queryStr, parameters, (err, result) => {
-      if (err) {
-        reject(err);
-      } else {
-        resolve(result);
-      }
-    })
-  })
-};
+pool.promiseQuery = util.promisify(pool.query);
 
 
 module.exports = pool;
