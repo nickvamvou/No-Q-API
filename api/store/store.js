@@ -364,47 +364,24 @@ module.exports = {
     res.status(200).json(queryResult);
   },
 
-    //checks if user is authorized to access information about the store
-    module.exports
-      .checkAuthorization(
-        req.userData.id,
-        req.userData.role,
-        req.params.storeId
-      )
-      .then(authorized => {
-        if (authorized) {
-          //create new product details entry
-          var createProductDetailsEntry =
-            "CALL create_product_details(?, ?, ?)";
+  /**
+   * Retrieves all product details in a particular store.
+   *
+   * @param req
+   * @param res
+   * @param next
+   */
+  getAllProductDetails: async (req, res, next) => {
+    const getAllProductDetailsQuery = 'CALL get_all_product_details_by_store_id(?)';
+    const [queryError, queryResult] =  await to(pool.promiseQuery(getAllProductDetailsQuery, [req.params.storeId]));
 
-          pool.query(
-            createProductDetailsEntry,
-            [
-              productDetails.name,
-              productDetails.product_description,
-              productDetails.product_details_id
-            ],
-            (err, result) => {
-              if (err) {
-                res.status(500).json({
-                  message: err
-                });
-              }
-              //Id of the new product detail.
-              else {
-                res.status(200).json({
-                  productDetailId: result[0][0].product_detail_id
-                });
-              }
-            }
-          );
-        } else {
-          return res.status(401).json({
-            message: "Authentication failed, user has no access in this store"
-          });
-        }
-      });
+    if (queryError) {
+      return next(createHttpError(500, new SqlError(queryError)));
+    }
+
+    res.status(200).json(queryResult);
   },
+
   /**
    * Adds the products option groups and values given by the user.
    * @param {[type]}   req  [description]

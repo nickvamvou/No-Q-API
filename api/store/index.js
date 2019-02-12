@@ -88,6 +88,13 @@ router.post(
   storeController.addNewProductDetails
 );
 
+// Get all product details in a store
+router.get(
+  "/:storeId/productDetails",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.getAllProductDetails
+);
+
 // Create a new product entry based on the product details id
 router.post(
   "/:storeId/:productDetailsId/newProduct",
