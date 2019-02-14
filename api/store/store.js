@@ -383,6 +383,25 @@ module.exports = {
   },
 
   /**
+   * Retrieves details of a product in a store
+   *
+   * @param productDetailsId
+   * @param res
+   * @param next
+   */
+  getProductDetails: async ({ params: { productDetailsId } }, res, next) => {
+    const [queryError, queryResult] = await to(pool.promiseQuery('CALL get_product_details_by_id(?)', [productDetailsId]));
+
+    if (queryError) {
+      return next(createHttpError(500, new SqlError(queryError)));
+    }
+
+    const [resultSet] = queryResult;
+
+    res.status(200).json(resultSet)
+  },
+
+  /**
    * Adds the products option groups and values given by the user.
    * @param {[type]}   req  [description]
    * @param {[type]}   res  [description]

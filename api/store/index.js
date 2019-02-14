@@ -1,5 +1,5 @@
-var express = require("express");
-var router = express.Router();
+const express = require("express");
+const router = express.Router();
 const checkAuth = require("../middleware/check-auth");
 const role = require("../user/user-role");
 // For multi form data - images
@@ -95,6 +95,13 @@ router.get(
   storeController.getAllProductDetails
 );
 
+// Get details of a product in a store
+router.get(
+  "/:storeId/productDetails/:productDetailsId",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.getProductDetails
+);
+
 // Create a new product entry based on the product details id
 router.post(
   "/:storeId/:productDetailsId/newProduct",
@@ -130,5 +137,6 @@ router.delete(
   // checkAuth.userAuth([role.RETAILER, role.ADMIN]),
   storeController.deleteVoucherFromShop
 );
+
 
 module.exports = router;
