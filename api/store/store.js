@@ -81,6 +81,24 @@ module.exports = {
     }
   },
 
+  viewStores: async (req, res, next) => {
+    // Check
+    var authorized = module.exports.checkAuthorizationRole(
+      req.userData.id,
+      req.params.userId,
+      req.userData.role
+    );
+
+    if (authorized) {
+      //retrieves all store information for the user
+      var stores = async;
+    } else {
+      return res.status(401).json({
+        message: "Authentication Failed"
+      });
+    }
+  },
+
   /**
    * Remove store from a retailer given the id of the store.
    * Only administrators can remove stores.
@@ -859,6 +877,20 @@ module.exports = {
         }
       );
     }));
+  },
+
+  getStoresOfUser: async userId => {
+    var getUserStores = "CALL get_user_stores(?)";
+    return await new Promise((res, rej) => {
+      pool.query(addProductToCart, [productId, cartId], (err, result) => {
+        if (err) {
+          return rej(err);
+        } else {
+          console.log("PRODUCT ADDED TO CART");
+          return res();
+        }
+      });
+    });
   },
 
   makeCouponUnredeemable: async couponId => {

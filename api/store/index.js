@@ -20,6 +20,12 @@ router.post(
   storeController.createNewStore
 );
 
+router.get(
+  "/:userId/viewStores",
+  // checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.viewStores
+);
+
 // Delete store (Only an administrator can delete stores)
 router.delete(
   "/:storeId/delete",
