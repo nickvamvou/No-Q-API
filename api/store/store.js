@@ -339,17 +339,15 @@ module.exports = {
   },
 
   /**
-   * Creates a new product detail and returns the id of the created row.
-   * @param req  Should include userData{id, role}, storeId as a parameter
-   *             product details name, description and id in the request
-   *             body.
-   * @param {[type]}   res  If successful then a JSON with the created
-   *                        product detail id. Otherwise the appropraite
-   *                        error message.
+   * Creates new details of a product and return the id of the newly added record.
+   *
+   * @param req - express request object containing information about the request -- request payload, route params, etc
+   * @param res - express response object
+   * @param next - function that forwards processes to the next express handler or middleware
    */
   addNewProductDetails: async (req, res, next) => {
-    const createProductDetailsQuery = 'CALL create_product_details(?)';
-    const [queryError, queryResult] = await to(pool.promiseQuery(createProductDetailsQuery, [
+    // Issue query to DB to create new details for a product
+    const [queryError, queryResult] = await to(pool.promiseQuery('CALL create_product_details(?)', [
       req.body.name,
       req.body.weight,
       req.body.stock,
@@ -357,47 +355,62 @@ module.exports = {
       req.body.retailerProductId,
     ]));
 
+    // Forward fatal error to global error handler
     if (queryError) {
       return next(createHttpError(500, new SqlError(queryError)));
     }
 
+    // Dish out final result :)
     res.status(200).json(queryResult);
   },
 
   /**
    * Retrieves all product details in a particular store.
    *
-   * @param req
-   * @param res
-   * @param next
+   * @param req - express request object containing information about the request -- request payload, route params, etc
+   * @param res - express response object
+   * @param next - function that forwards processes to the next express handler or middleware
    */
   getAllProductDetails: async (req, res, next) => {
-    const getAllProductDetailsQuery = 'CALL get_all_product_details_by_store_id(?)';
-    const [queryError, queryResult] =  await to(pool.promiseQuery(getAllProductDetailsQuery, [req.params.storeId]));
+    // Issue query to get all product details in a store/shop
+    const [queryError, queryResult] =  await to(
+      pool.promiseQuery('CALL get_all_product_details_by_store_id(?)', [req.params.storeId])
+    );
 
+    // Forward fatal error to global error handler
     if (queryError) {
       return next(createHttpError(500, new SqlError(queryError)));
     }
 
-    res.status(200).json(queryResult);
+    // Retrieve actual result set from query result
+    const [resultSet] = queryResult;
+
+    // Dish out final result :)
+    res.status(200).json(resultSet);
   },
 
   /**
-   * Retrieves details of a product in a store
+   * Retrieves details of a specific product in a store
    *
-   * @param productDetailsId
-   * @param res
-   * @param next
+   * @param req - express request object containing information about the request -- request payload, route params, etc
+   * @param res - express response object
+   * @param next - function that forwards processes to the next express handler or middleware
    */
   getProductDetails: async ({ params: { productDetailsId } }, res, next) => {
-    const [queryError, queryResult] = await to(pool.promiseQuery('CALL get_product_details_by_id(?)', [productDetailsId]));
+    // Issue query to get details of a product in a store
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery('CALL get_product_details_by_id(?)', [productDetailsId])
+    );
 
+    // Forward fatal error to global error handler
     if (queryError) {
       return next(createHttpError(500, new SqlError(queryError)));
     }
 
+    // Retrieve actual result set from query result
     const [resultSet] = queryResult;
 
+    // Dish out final result :)
     res.status(200).json(resultSet)
   },
 

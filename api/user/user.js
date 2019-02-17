@@ -1,5 +1,6 @@
 //This defines the user controller
 const createHttpError = require("http-errors");
+const path = require('path');
 const bcrypt = require("bcrypt");
 const to = require('await-to-js').default;
 const pool = require("../../config/db_connection");
@@ -519,10 +520,11 @@ module.exports = {
 
   /**
    *  This particular method initiates the process of resetting password for a customer.
+   *  TODO: Refactor messaging and endpoint to show that this method can work for any individual user
    *
-   * @param req
-   * @param res
-   * @param next
+   * @param req - express request object containing information about the request
+   * @param res - express response object
+   * @param next - function that forwards processes to the next express handler or middleware
    */
   initiateIndividualPassReset: async (req, res, next) => {
     const { body: { email } } = req;
@@ -543,39 +545,48 @@ module.exports = {
 
     const [{ first_name }] = resultSet;
 
+    // Save individual's first name as a reference name to be used by the `initiateResetPassword` helper/base function
     req.referenceName = first_name;
 
+    // Pass control to `initiateResetPassword` which holds similar processes across multiple user types
     initiateResetPassword(req, res, next);
   },
 
   /**
    *  This particular method initiates the process of resetting password for a retailer.
    *
-   * @param req
-   * @param res
-   * @param next
+   * @param req - express request object containing information about the request
+   * @param res - express response object
+   * @param next - function that forwards processes to the next express handler or middleware
    */
   initiateRetailerPassReset: async (req, res, next) => {
     const { body: { email } } = req;
-    const retailerQuery = "CALL get_retailer_details_by_email(?)";
-    const [queryError, queryResult] = await to(pool.promiseQuery(retailerQuery, [email]));
 
+    // Issue query to get retailer info
+    const [queryError, queryResult] = await to(pool.promiseQuery("CALL get_retailer_details_by_email(?)", [email]));
+
+    // Forward fatal error to global error handler
     if (queryError) {
       return next(createHttpError(500, new SqlError(queryError)));
     }
 
+    // Get nested array which contains the actual result set
     const [resultSet] = queryResult;
 
+    // If no retailer is found, forward a 404 HTTP error to the global error handler
     if (!resultSet.length) {
       return next(createHttpError(
         404, `Unfortunately, '${email}' is not associated with any account.`
       ));
     }
 
+    // Retrieve retailer's brand name
     const [{ brand_name }] = resultSet;
 
+    // Save brand name as a reference name to be used by the `initiateResetPassword` helper/base function
     req.referenceName = brand_name;
 
+    // Pass control to `initiateResetPassword` which holds similar processes across multiple user types
     initiateResetPassword(req, res, next);
   },
 
@@ -584,41 +595,51 @@ module.exports = {
    *  provided that the process has being initiated not more than an hour
    *  before doing this.
    *
-   * @param req
-   * @param res
-   * @param next
+   * @param req - express request object containing information about the request
+   * @param res - express response object
+   * @param next - function that forwards processes to the next express handler or middleware
    */
-  resetPassword: async ({ body: { token: userToken, newPassword } }, res, next) => {
-    const decodedData = jwt.verify(userToken, key.jwt_key); // TODO: Make this async
+  resetPassword: async ({ body: { token: forgotPassToken, newPassword } }, res, next) => {
+    // Attempt to Verify token. If successful, returns decoded data with user's email ana other info
+    const decodedData = jwt.verify(forgotPassToken, key.jwt_key); // TODO: Make this async
 
+    // Token is not available anymore, probably expired, invalid, or doesn't meet same conditions as when created
     if (!decodedData) {
       return next(createHttpError(404, 'Token not available'));
     }
 
     const { email, referenceName } = decodedData;
+
+    // Retrieve copy of token saved in cache register for authentication and validation.
     const [cacheRegisterErr, token] = await to(cacheRegister.get(`forgot-pass-token-${email}`));
 
+    // Forward fatal error to global error handler
     if (cacheRegisterErr) {
       return next(createHttpError(500, cacheRegisterErr));
     }
 
-    if (token !== userToken) {
+    // Token doesn't match. Someone is playing games! Halt process here.
+    if (token !== forgotPassToken) {
       return next(createHttpError(400, 'Provided token doesn\'t match saved token'));
     }
 
-    const [passHashErr, hashedPass] = await to(this.hashPassword(newPassword));
+    // Encrypt new password
+    const [passHashErr, hashedPass] = await to(module.exports.hashPassword(newPassword));
 
+    // Forward fatal error to global error handler
     if (passHashErr) {
       return next(createHttpError(500, passHashErr));
     }
 
-    const changeUserPassQuery = `CALL change_user_password_by_email(?)`;
-    const [userQueryError] = await to(pool.promiseQuery(changeUserPassQuery, [email, hashedPass]));
+    // Issue query to DB to update user password
+    const [userQueryError] = await to(pool.promiseQuery(`CALL change_user_password_by_email(?, ?)`, [email, hashedPass]));
 
+    // Forward fatal error to global error handler
     if (userQueryError) {
       return next(createHttpError(500, new SqlError(userQueryError)));
     }
 
+    // Configure mailer options
     const mailOptions = {
       to: email,
       from: 'no-q@info.io',
@@ -629,15 +650,29 @@ module.exports = {
       }
     };
 
+    // Send email using Nodemailer's SMTP transport
     const [mailerError] = await to(mailer.sendEmail(mailOptions));
 
+    // Forward fatal error to global error handler
     if (mailerError) {
       return next(createHttpError(500, mailerError));
     }
 
+    // Dish out success message :)
     return res.status(200).json({
       message: 'Your password has been changed successfully',
     });
+  },
+
+  /**
+   * This particular method renders a reset password form
+   *
+   * @param req - express request object containing information about the request
+   * @param res - express response object
+   */
+  renderPassResetForm: async (req, res) => {
+    // Send static HTML file.
+    res.sendFile(path.resolve('./public/templates/reset-password.html'));
   },
 
   /**

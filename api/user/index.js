@@ -56,6 +56,14 @@ router.post(
     userController.resetPassword,
 );
 
+/**
+ * Renders html template with form to reset password
+ */
+router.get(
+  "/reset-password",
+  userController.renderPassResetForm,
+);
+
 // Change user passwrod by an Administrator.
 router.patch(
   "/:userId/change-password/admin",
