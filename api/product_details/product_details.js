@@ -32,8 +32,11 @@ const updateProductDetails = async (req, res, next) => {
     return next(createHttpError(500, new SqlError(queryError)));
   }
 
+  // Retrieve actual result set from query result
+  const [resultSet] = queryResult;
+
   // Responds with information for updated product details.
-  res.status(200).json(queryResult);
+  res.status(200).json(resultSet);
 };
 
 

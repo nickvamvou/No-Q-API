@@ -19,9 +19,19 @@ const mailer = require('../../config/mailer');
  * @param next - function that forwards processes to the next express handler or middleware
  */
 const initiateResetPassword = async ({ body: { email }, referenceName }, res, next) => {
-  const token = jwt.sign({ email, referenceName }, key.jwt_key, { expiresIn: '1h' }); // TODO: Make this async
+  const [jwtError, token] = await to(
+    util.promisify(jwt.sign)({ email, referenceName }, key.jwt_key, { expiresIn: '1h' })
+  );
+
+  // Forward fatal error to global error handler
+  if (jwtError) {
+    return next(createHttpError(500, jwtError));
+  }
+
+  // Save generated token for resetting password to cache register, to expire in an hour
   cacheRegister.set(`forgot-pass-token-${email}`, token, 'EX', 60 * 60);
 
+  // Configure mailer options
   const mailOptions = {
     to: email,
     from: 'no-q@info.io',
@@ -33,12 +43,15 @@ const initiateResetPassword = async ({ body: { email }, referenceName }, res, ne
     }
   };
 
+  // Send mail
   const [mailerError] = await to(mailer.sendEmail(mailOptions));
 
+  // Forward fatal error to global error handler
   if (mailerError) {
     return next(createHttpError(500, mailerError.message));
   }
 
+  // Dish out success message
   return res.status(200).json({
     message: 'A link to reset your password has been sent to your email',
   });

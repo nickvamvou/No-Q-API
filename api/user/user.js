@@ -3,6 +3,7 @@ const createHttpError = require("http-errors");
 const path = require('path');
 const bcrypt = require("bcrypt");
 const to = require('await-to-js').default;
+const util = require('util');
 const pool = require("../../config/db_connection");
 const cacheRegister = require('../../config/cache_register');
 const mailer = require('../../config/mailer');
@@ -601,7 +602,12 @@ module.exports = {
    */
   resetPassword: async ({ body: { token: forgotPassToken, newPassword } }, res, next) => {
     // Attempt to Verify token. If successful, returns decoded data with user's email ana other info
-    const decodedData = jwt.verify(forgotPassToken, key.jwt_key); // TODO: Make this async
+    const [jwtError, decodedData] = await to(util.promisify(jwt.verify)(forgotPassToken, key.jwt_key));
+
+    // Forward fatal error to global error handler
+    if (jwtError) {
+      return next(createHttpError(500, jwtError));
+    }
 
     // Token is not available anymore, probably expired, invalid, or doesn't meet same conditions as when created
     if (!decodedData) {
