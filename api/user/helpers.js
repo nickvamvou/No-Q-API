@@ -14,10 +14,9 @@ const mailer = require('../../config/mailer');
  * This method handles general functionality for initiating
  * password reset for all user types.
  *
- * @param req.body.email
- * @param req.referenceName
- * @param res
- * @param next
+ * @param req - express request object containing information about the request - payload, route params, etc
+ * @param res - express response object
+ * @param next - function that forwards processes to the next express handler or middleware
  */
 const initiateResetPassword = async ({ body: { email }, referenceName }, res, next) => {
   const token = jwt.sign({ email, referenceName }, key.jwt_key, { expiresIn: '1h' }); // TODO: Make this async
@@ -29,7 +28,7 @@ const initiateResetPassword = async ({ body: { email }, referenceName }, res, ne
     template: 'forgot-password',
     subject: 'Password help has arrived!',
     context: {
-      url: `http://localhost:3000/auth/reset-password?token=${token}`,
+      url: `http://localhost:3000/user/reset-password?token=${token}`,
       name: referenceName,
     }
   };

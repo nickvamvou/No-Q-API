@@ -1,3 +1,7 @@
+/**
+ * This module contains Product derails controllers
+ */
+
 const to = require('await-to-js').default;
 const pool = require('../../config/db_connection');
 const createHttpError = require('http-errors');
