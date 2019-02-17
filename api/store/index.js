@@ -81,7 +81,7 @@ router.patch(
   storeController.updateProduct
 );
 
-// Create a new product (by creating its product details)
+// Create new product details for a product
 router.post(
   "/:storeId/productDetails",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
