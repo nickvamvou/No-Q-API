@@ -18,7 +18,7 @@ const { SqlError } = require('../utils');
  */
 const updateProductDetails = async (req, res, next) => {
   // Executes update query against Db via a stored procedure to update necessary information.
-  const [queryError, queryResult] = await to(pool.promiseQuery('CALL update_product_details(?)', [
+  const [queryError, queryResult] = await to(pool.promiseQuery('CALL update_product_details(?, ?, ?, ?, ?, ?)', [
     req.params.productDetailsId,
     req.body.name,
     req.body.weight,
