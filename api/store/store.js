@@ -347,7 +347,7 @@ module.exports = {
    */
   addNewProductDetails: async (req, res, next) => {
     // Issue query to DB to create new details for a product
-    const [queryError, queryResult] = await to(pool.promiseQuery('CALL create_product_details(?)', [
+    const [queryError, queryResult] = await to(pool.promiseQuery('CALL create_product_details(?, ?, ?, ?, ?)', [
       req.body.name,
       req.body.weight,
       req.body.stock,
