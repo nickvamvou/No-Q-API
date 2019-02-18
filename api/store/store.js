@@ -347,21 +347,26 @@ module.exports = {
    */
   addNewProductDetails: async (req, res, next) => {
     // Issue query to DB to create new details for a product
-    const [queryError, queryResult] = await to(pool.promiseQuery('CALL create_product_details(?, ?, ?, ?, ?)', [
+    const [queryError, queryResult] = await to(pool.promiseQuery('CALL create_product_details(?, ?, ?, ?, ?, ?, ?)', [
       req.body.name,
       req.body.weight,
       req.body.stock,
       req.body.description,
       req.body.retailerProductId,
+      req.params.storeId,
+      req.userData.id,
     ]));
 
     // Forward fatal error to global error handler
     if (queryError) {
-      return next(createHttpError(500, new SqlError(queryError)));
+      return next(createHttpError(new SqlError(queryError)));
     }
 
+    // Retrieve actual result set from query result
+    const [resultSet] = queryResult;
+
     // Dish out final result :)
-    res.status(200).json(queryResult);
+    res.status(200).json(resultSet);
   },
 
   /**
