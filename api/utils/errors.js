@@ -3,7 +3,7 @@
  *
  * This module contains classes responsible
  * for creating and augmenting specific errors
- * withing the application. This is to ensure that
+ * within the application. This is to ensure that
  * errors conform to the native standard.
  *
  * Each specific error inherits from `BaseError`
@@ -12,6 +12,7 @@
  *
  */
 
+const statusCodes = require('statuses');
 
 /**
  * Error class that describes all other
@@ -32,8 +33,19 @@ class BaseError extends Error {
  * Error class from creating SQL errors.
  */
 class SqlError extends BaseError {
-  constructor({ sqlMessage }) {
+  constructor({ sqlMessage, sqlState }) {
     super(sqlMessage);
+
+    this.statusCode = SqlError.deriveHttpStatusCodeFromSqlStateCode(sqlState);
+  }
+
+  static deriveHttpStatusCodeFromSqlStateCode(sqlState) {
+    switch (sqlState) {
+      case '42506':
+        return statusCodes.Forbidden;
+      default:
+        return statusCodes['Internal Server Error'];
+    }
   }
 }
 
