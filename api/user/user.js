@@ -536,6 +536,7 @@ module.exports = {
       return next(createHttpError(500, new SqlError(queryError)));
     }
 
+    // Retrieve actual result set from query result
     const [resultSet] = queryResult;
 
     if (!resultSet.length) {

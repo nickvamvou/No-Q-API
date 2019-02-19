@@ -401,10 +401,14 @@ module.exports = {
    * @param res - express response object
    * @param next - function that forwards processes to the next express handler or middleware
    */
-  getProductDetails: async ({ params: { productDetailsId } }, res, next) => {
+  getProductDetails: async ({ params: { productDetailsId, storeId }, userData }, res, next) => {
     // Issue query to get details of a product in a store
     const [queryError, queryResult] = await to(
-      pool.promiseQuery('CALL get_product_details_by_id(?)', [productDetailsId])
+      pool.promiseQuery('CALL get_product_details_by_id(?, ?, ?)', [
+        productDetailsId,
+        storeId,
+        userData.id,
+      ])
     );
 
     // Forward fatal error to global error handler
@@ -414,6 +418,13 @@ module.exports = {
 
     // Retrieve actual result set from query result
     const [resultSet] = queryResult;
+
+    // Return 404 if the requested product details was not found
+    if (!resultSet.length) {
+      return next(createHttpError(
+        404, 'Product details was not found'
+      ));
+    }
 
     // Dish out final result :)
     res.status(200).json(resultSet)
