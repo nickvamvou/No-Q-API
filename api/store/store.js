@@ -427,7 +427,7 @@ module.exports = {
     }
 
     // Dish out final result :)
-    res.status(200).json(resultSet)
+    res.status(200).json(resultSet[0])
   },
 
   /**
