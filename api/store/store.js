@@ -384,7 +384,7 @@ module.exports = {
 
     // Forward fatal error to global error handler
     if (queryError) {
-      return next(createHttpError(500, new SqlError(queryError)));
+      return next(createHttpError(new SqlError(queryError)));
     }
 
     // Retrieve actual result set from query result
@@ -413,7 +413,7 @@ module.exports = {
 
     // Forward fatal error to global error handler
     if (queryError) {
-      return next(createHttpError(500, new SqlError(queryError)));
+      return next(createHttpError(new SqlError(queryError)));
     }
 
     // Retrieve actual result set from query result
