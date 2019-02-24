@@ -4,7 +4,15 @@
  */
 
 const pool = require("../../config/db_connection");
+const to = require("await-to-js").default;
+
+//error
+const DB_ERROR = -1;
+const DB_EMPTY_RESPONSE = -2;
+
 module.exports = {
+  DB_ERROR,
+
   getCompletedOrder: (req, res, next) => {
     var authorized = checkAuthorization(
       req.params.userId,
@@ -67,8 +75,10 @@ module.exports = {
    *
    * @method addProductToCart
    * @param RFID (int)
-   * @param Barcode (int)
-   * @param Secured (boolean)
+   * @param barcode (int)
+   * @param secured (boolean)
+   * @param cart_id
+   * @param store_id
    * @return Product Details (Product information associated with the RFID received)
    * @throws Error (404) when RFID is not found.
              Error (500) System Failure.
@@ -87,67 +97,259 @@ module.exports = {
     authorized = true;
 
     if (authorized) {
-      //product id
-      const productRFID = req.body.RFID;
-      //check if product rfid exists and has not been bought
-      var product = await module.exports
-        .checkRFIDScanned(productRFID)
-        .then(async product => {
-          //get the user from the url
-          const userId = req.params.userId;
-          var customer_cart = await module.exports
-            .getCartFromCustomer(userId)
-            .then(async customer_cart => {
-              //customer does not have any cart
-              if (customer_cart.length === 0) {
-                try {
-                  //create a cart for the user based on the customer id and the store id
-                  var cart_id = await module.exports.createCustomerCart(
-                    userId,
-                    product.store_id
-                  );
-                  //update the customer cart id so the product can be added to the specific cart
-                  customer_cart.cart_id = cart_id;
-                } catch (err) {
-                  return res.status(500).json({
-                    message: "Could not create new cart for user"
-                  });
-                }
-              }
-              //TODO ask developer whether I should check again if the product is in any other cart
-              //add the product to customers cart
-              await module.exports
-                .addProductToUsersCart(
-                  product.product_id,
-                  customer_cart.cart_id
-                )
-                .then(() => {
-                  //item added to cart
-                  res.status(200).json({
-                    message: product,
-                    cart_id: customer_cart.cart_id
-                  });
-                })
-                .catch(err => {
-                  console.log("ALWAYS IN");
-                  return res.status(404).json({
-                    message: "Customer already has the product in his/her cart"
-                  });
-                });
-            })
-            .catch(err => {
-              return res.status(500).json({
-                message: "Error with DB connection"
-              });
-            });
-        })
-        .catch(err => {
-          //the prduct with the specific RFID does not exist
-          return res.status(404).json({
-            message: "RFID not found"
+      //product has barcode and is not RFID enabled
+      if (!req.body.secured) {
+        //check if the cart is active
+
+        console.log(req.body.cart_id);
+
+        //holds the storeId of the active cart
+        var storeIdOfActiveCart = await module.exports.cartIsActive(
+          req.body.cart_id
+        );
+
+        if (storeIdOfActiveCart instanceof Error) {
+          return res.status(500).json({
+            message: storeIdOfActiveCart
           });
+        }
+
+        //that variable stores the cart that will receive the product
+        var cart_id = req.body.cart_id;
+        //takes cases where
+        ////the user has an active cart but his cart belongs to a different shop
+        //the user does not have an active cart
+        if (
+          storeIdOfActiveCart === DB_EMPTY_RESPONSE ||
+          storeIdOfActiveCart !== req.body.store_id
+        ) {
+          //TODO THE PROBLEM IS HERE WITH RECEIVING THE STORE ID WHICH NEEDS CHANGING - storeIdOfActiveCart IS WRONG
+          //the user has an active cart but his cart belongs to a different shop
+          if (storeIdOfActiveCart !== req.body.store_id) {
+            console.log("GOES HERE TO DELETE");
+
+            console.log("STORE ID TO DELETE : " + req.body.store_id);
+            console.log("USER ID TO DELETE : " + req.params.userId);
+
+            //get the cart id delete cart id from the cart and the active cart table
+            var cartDeletion = await module.exports.deleteCartFromCartAndFromActive(
+              storeIdOfActiveCart,
+              req.params.userId
+            );
+
+            //there was a problem deleting the cart
+            if (cartDeletion instanceof Error) {
+              return res.status(500).json({
+                message: cartDeletion
+              });
+            }
+          }
+
+          //create new cart in the cart table and make it an active cart
+          var cartIdCreated = await module.exports.createNewCartAndMakeItActive(
+            req.params.userId,
+            req.body.store_id
+          );
+
+          if (cartIdCreated instanceof Error) {
+            return res.status(500).json({
+              message: cartIdCreated
+            });
+          }
+
+          //add product to the new cart and return cart
+          cart_id = cartIdCreated;
+          console.log("CREATED A CARD WITH ID : " + cart_id);
+        }
+
+        console.log("REACHED HERE");
+
+        //the user has an active cart to the particular shop, add the product to the cart
+        var cartItems = await module.exports.addProductToUsersCartBasedOnBarcode(
+          req.body.barcode,
+          cart_id
+        );
+        if (cartItems instanceof Error) {
+          return res.status(500).json({
+            message: cartItems
+          });
+        }
+        return res.status(200).json({
+          message: "Product added to cart"
         });
+      }
+
+      // RFID SOLUTION
+      // const productRFID = req.body.RFID;
+      // //check if product rfid exists and has not been bought
+      // var product = await module.exports
+      //   .checkRFIDScanned(productRFID)
+      //   .then(async product => {
+      //     //get the user from the url
+      //     const userId = req.params.userId;
+      //     var customer_cart = await module.exports
+      //       .getCartFromCustomer(userId)
+      //       .then(async customer_cart => {
+      //         //customer does not have any cart
+      //         if (customer_cart.length === 0) {
+      //           try {
+      //             //create a cart for the user based on the customer id and the store id
+      //             var cart_id = await module.exports.createCustomerCart(
+      //               userId,
+      //               product.store_id
+      //             );
+      //             //update the customer cart id so the product can be added to the specific cart
+      //             customer_cart.cart_id = cart_id;
+      //           } catch (err) {
+      //             return res.status(500).json({
+      //               message: "Could not create new cart for user"
+      //             });
+      //           }
+      //         }
+      //         //TODO ask developer whether I should check again if the product is in any other cart
+      //         //add the product to customers cart
+      //         await module.exports
+      //           .addProductToUsersCart(
+      //             product.product_id,
+      //             customer_cart.cart_id
+      //           )
+      //           .then(() => {
+      //             //item added to cart
+      //             res.status(200).json({
+      //               message: product,
+      //               cart_id: customer_cart.cart_id
+      //             });
+      //           })
+      //           .catch(err => {
+      //             console.log("ALWAYS IN");
+      //             return res.status(404).json({
+      //               message: "Customer already has the product in his/her cart"
+      //             });
+      //           });
+      //       })
+      //       .catch(err => {
+      //         return res.status(500).json({
+      //           message: "Error with DB connection"
+      //         });
+      //       });
+      //   })
+      //   .catch(err => {
+      //     //the prduct with the specific RFID does not exist
+      //     return res.status(404).json({
+      //       message: "RFID not found"
+      //     });
+      //   });
+    } else {
+      return res.status(401).json({
+        message: "Authentication Failed"
+      });
     }
+  },
+
+  addProductToUsersCartBasedOnBarcode: async (barcode, cartId) => {
+    const addProductToCartBasedOnBarcode =
+      "CALL add_product_based_barcode_to_user_cart(?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(addProductToCartBasedOnBarcode, [barcode, cartId])
+    );
+    //get any possible error
+    if (queryError) {
+      console.log("GOES IN THE SECOND ERROR");
+      return queryError;
+    } else {
+      return;
+    }
+  },
+
+  /*
+    Receives cart id and deletes it from the cart and the active cart table
+  */
+  deleteCartFromCartAndFromActive: async (shop_id, user_id) => {
+    console.log("sp : " + shop_id);
+    console.log("ui : " + user_id);
+    const deleteActiveCart = "CALL delete_cart(?,?)";
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(deleteActiveCart, [shop_id, user_id])
+    );
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    } else {
+      return;
+    }
+  },
+
+  /*
+    Receives a cart id and checks if its active. If active it returns the store id of the active cart
+  */
+  cartIsActive: async cartId => {
+    const checkCartActive = "CALL cart_is_active(?)";
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(checkCartActive, [cartId])
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    const [resultSet] = queryResult;
+
+    if (!resultSet.length) {
+      console.log("NO CART");
+      return DB_EMPTY_RESPONSE;
+    }
+
+    const [{ store_id }] = resultSet;
+    console.log("THERE IS A CART AND IT BELONGS TO THIS STORE : " + store_id);
+    //contains the store id
+    return store_id;
+  },
+
+  /*
+    Receives the customer id who is going to be the owner of the cart and
+    the store id which the cart will belong. Returns the id of the new cart.
+  */
+  createNewCartAndMakeItActive: async (customer_id, store_id) => {
+    const createNewCart = "CALL create_new_active_cart(?,?)";
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(createNewCart, [customer_id, store_id])
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    const [resultSet] = queryResult;
+
+    if (!resultSet.length) {
+      return DB_EMPTY_RESPONSE;
+    }
+
+    const [{ id }] = resultSet;
+    //returns the id of the new cart
+    return id;
+  },
+
+  /*
+    receives ProductId and cartId and adds the product to the cart
+    adds the specific product to the cart
+  */
+
+  addProductToUsersCart: async (productId, cartId) => {
+    var addProductToCart = "CALL add_product_to_user_cart(?, ?)";
+    return await new Promise((res, rej) => {
+      pool.query(addProductToCart, [productId, cartId], (err, result) => {
+        if (err) {
+          return rej(err);
+        } else {
+          console.log("PRODUCT ADDED TO CART");
+          return res();
+        }
+      });
+    });
   },
 
   /**
@@ -399,25 +601,6 @@ module.exports = {
         }
       });
     }));
-  },
-
-  /*
-    receives ProductId and cartId and adds the product to the cart
-    adds the specific product to the cart
-  */
-
-  addProductToUsersCart: async (productId, cartId) => {
-    var addProductToCart = "CALL add_product_to_user_cart(?, ?)";
-    return await new Promise((res, rej) => {
-      pool.query(addProductToCart, [productId, cartId], (err, result) => {
-        if (err) {
-          return rej(err);
-        } else {
-          console.log("PRODUCT ADDED TO CART");
-          return res();
-        }
-      });
-    });
   },
 
   /*
