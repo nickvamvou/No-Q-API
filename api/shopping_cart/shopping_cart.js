@@ -274,14 +274,31 @@ module.exports = {
       });
     }
 
+    console.log(cartIdAndProducts);
+    console.log(cartIdAndProducts.toString());
+
     //if the result has more than two fields then the user has active cart in shop
     //and the cartIdAndProducts contains cart id and products of the active cart
-    if (cartIdAndProducts.length > 2) {
+    if (cartIdAndProducts[0].hasOwnProperty("product_id")) {
       //TODO pass the information to a filter function.
 
+      console.log("GOES INSIDE - THE USER ALREADY HAS A CART");
+      const [{ cart_id }] = cartIdAndProducts;
+      const [{ product_id }] = cartIdAndProducts;
+
+      //user has a cart but its empty
+      if (!product_id) {
+        return res.status(200).json({
+          message: "Your existing cart has been retrieved",
+          cart_id: cart_id
+        });
+      }
+
+      module.exports.filterCartProductsWithOptions(cartIdAndProducts);
       //filter the result and send it to the front end
       return res.status(200).json({
         message: "Your existing cart has been retrieved",
+        cart: cart_id,
         cart: cartIdAndProducts
       });
     }
@@ -289,15 +306,20 @@ module.exports = {
     else {
       //get how many active carts the user has (irrelevant from the store)
       const [{ number_active_carts }] = cartIdAndProducts;
+
+      console.log(
+        "NUMBER OF ACTIVE CARTS IN A DIFFERENT SHOP : " + number_active_carts
+      );
       //if the user has 1 or more active carts with different shops delete the carts
       if (number_active_carts > 0) {
+        const [{ cart_id }] = cartIdAndProducts;
         console.log("YOU HAD A CART WITH ANOTHER SHOP");
+        console.log("CART ID TO DELETE ORIGINAL : " + cart_id);
+
         //get the store id that the user has an active cart in order to delete it
         const [{ store_id }] = cartIdAndProducts;
-        var deleted = await module.exports.deleteActivecarts(
-          req.params.userId,
-          store_id
-        );
+        var deleted = await module.exports.deleteActivecarts(cart_id);
+
         if (deleted instanceof Error) {
           return res.status(500).json({
             message: deleted
@@ -333,11 +355,88 @@ module.exports = {
     }
   },
 
+  //TODO MAKE IT MORE OPTIMIZED - EFFICENT WITH THE QUERY - works in a hacky way
+  /*
+    Filter cart with product options. Gets a cart with product and filters it based on the options
+  */
+  filterCartProductsWithOptions: cart_with_products => {
+    var filtered_cart = [];
+    var product_ids_visited = [];
+
+    var current_product = {};
+
+    for (product_detail_entry of cart_with_products) {
+      if (!product_ids_visited.includes(product_detail_entry.product_id)) {
+        filtered_cart.push(current_product);
+        product_ids_visited.push(product_detail_entry.product_id);
+        current_product = product_detail_entry;
+      } else {
+        current_product.option_value =
+          current_product.option_value +
+          "," +
+          product_detail_entry.option_value;
+
+        current_product.option_group_name =
+          current_product.option_group_name +
+          "," +
+          product_detail_entry.option_group_name;
+      }
+    }
+
+    filtered_cart.push(current_product);
+    console.log(filtered_cart);
+
+    // //get all the product details, option values and option groups for 1 product
+    // for (i = 0; i < cart_with_products.length; i++) {
+    //   //get all the product detail information
+    //   for (var property in cart_with_products[i]) {
+    //     if (property !== "product_id") {
+    //       if (product_id_visited.includes(cart_with_products[i][property])) {
+    //         continue;
+    //       }
+    //     }
+    //     if (property !== "option_value" && property !== "option_group_name") {
+    //       individual_product_details[property] =
+    //         cart_with_products[i][property];
+    //     }
+    //     //loop through the array of values
+    //     else {
+    //       //we loop through the option values and add them to individual product details
+    //       if (property === "option_value") {
+    //         for (var option_value in cart_with_products[i][property]) {
+    //           indiviual_values.push(cart_with_products[i].option_value);
+    //           console.log("stop");
+    //         }
+    //       }
+    //       //we loop through the option group and add them to individual product details
+    //       else {
+    //         for (var option_group in cart_with_products[i][property]) {
+    //           individual_group_names.push(
+    //             cart_with_products[i].option_group_name
+    //           );
+    //         }
+    //       }
+    //     }
+    //   }
+    //   product_id_visited.push(cart_with_products[i]["product_id"]);
+    //   //add the group names and values to the product Details
+    //   individual_product_details["option_values"] = indiviual_values;
+    //   individual_product_details["option_group_names"] = individual_group_names;
+    //
+    //   //add the product details object to the array
+    //   transformed_cart.push(individual_product_details);
+    //   individual_product_details = {};
+    //   var indiviual_values = [];
+    //   var individual_group_names = [];
+    // }
+  },
+
   /*
     Deletes all the active carts belonging to the user but not
     have the same shop as the user.
   */
   deleteActivecarts: async cart_id => {
+    console.log("THATS THE ID PASSED TO DELETE THE CART : " + cart_id);
     //delete active cart from the user
     const deleteActiveCarts = "CALL delete_cart_by_id(?)";
 
@@ -351,7 +450,7 @@ module.exports = {
 
     //this means that the user has an active cart that belongs to the shop and the
     // result set holds the products of the cart with the cart id
-    return resultSet;
+    return queryResult;
   },
 
   /*
@@ -362,6 +461,9 @@ module.exports = {
   getActiveCartIdAndProductInformation: async (userId, storeId) => {
     const getCartIdAndProducts = "CALL get_customer_active_cart_products(?, ?)";
 
+    console.log("User id passing in : " + userId);
+    console.log("Store id passing in : " + storeId);
+
     const [queryError, queryResult] = await to(
       pool.promiseQuery(getCartIdAndProducts, [userId, storeId])
     );
@@ -369,7 +471,7 @@ module.exports = {
     if (queryError) {
       return queryError;
     }
-
+    const [resultSet] = queryResult;
     //this means that the user has an active cart that belongs to the shop and the
     // result set holds the products of the cart with the cart id
     return resultSet;

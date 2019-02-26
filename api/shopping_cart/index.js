@@ -21,7 +21,7 @@ router.delete(
   orderController.removeProductFromCart
 );
 
-router.get(
+router.post(
   "/:userId/active_cart",
   // checkAuth.userAuth([role.SHOPPER]),
   orderController.getCartIDWithCartProductInformation
