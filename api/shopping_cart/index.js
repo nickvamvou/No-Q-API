@@ -21,6 +21,12 @@ router.delete(
   orderController.removeProductFromCart
 );
 
+router.get(
+  "/:userId/active_cart",
+  // checkAuth.userAuth([role.SHOPPER]),
+  orderController.getCartIDWithCartProductInformation
+);
+
 //add product to user shopping cart
 
 router.post("/:userId/addVoucher", orderController.addVoucherToCart);

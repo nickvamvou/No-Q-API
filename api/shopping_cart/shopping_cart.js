@@ -101,8 +101,6 @@ module.exports = {
       if (!req.body.secured) {
         //check if the cart is active
 
-        console.log(req.body.cart_id);
-
         //holds the storeId of the active cart
         var storeIdOfActiveCart = await module.exports.cartIsActive(
           req.body.cart_id
@@ -246,6 +244,137 @@ module.exports = {
     }
   },
 
+  /**
+   * `{url}/shopping_cart/userId/itemId/add`
+   *
+   * The particular method searches for an active cart that belongs to the user,
+   together with the products of the cart, if user does not have active cart
+   with the particular store it deletes previous carts creates a new one and sends
+   back the new cart id
+   *
+   * @method getCartInformation
+   * @param store_id (the store that the user is in)
+   * @return Cart id + products in cart if user has an active cart with the particular shop
+              or cart id if a new cart is created because user does not have active cart
+             with the shop or has an active cart with another shop
+   * @throws
+   */
+  getCartIDWithCartProductInformation: async (req, res, next) => {
+    //TODO check for authorization
+
+    //check if user has active cart with the particular shop (stores the cart id)
+    var cartIdAndProducts = await module.exports.getActiveCartIdAndProductInformation(
+      req.params.userId,
+      req.body.store_id
+    );
+
+    if (cartIdAndProducts instanceof Error) {
+      return res.status(500).json({
+        message: cartIdAndProducts
+      });
+    }
+
+    //if the result has more than two fields then the user has active cart in shop
+    //and the cartIdAndProducts contains cart id and products of the active cart
+    if (cartIdAndProducts.length > 2) {
+      //TODO pass the information to a filter function.
+
+      //filter the result and send it to the front end
+      return res.status(200).json({
+        message: "Your existing cart has been retrieved",
+        cart: cartIdAndProducts
+      });
+    }
+    //the user does not have an active cart with the shop
+    else {
+      //get how many active carts the user has (irrelevant from the store)
+      const [{ number_active_carts }] = cartIdAndProducts;
+      //if the user has 1 or more active carts with different shops delete the carts
+      if (number_active_carts > 0) {
+        console.log("YOU HAD A CART WITH ANOTHER SHOP");
+        //get the store id that the user has an active cart in order to delete it
+        const [{ store_id }] = cartIdAndProducts;
+        var deleted = await module.exports.deleteActivecarts(
+          req.params.userId,
+          store_id
+        );
+        if (deleted instanceof Error) {
+          return res.status(500).json({
+            message: deleted
+          });
+        }
+      }
+      //create a new cart and return it to the user
+      var cartId = await module.exports.createNewCartAndMakeItActive(
+        req.params.userId,
+        req.body.store_id
+      );
+
+      if (cartId instanceof Error) {
+        return res.status(500).json({
+          message: cartId
+        });
+      }
+
+      return res.status(200).json({
+        message: "New cart created",
+        cart: cartId
+      });
+    }
+
+    //if yes return all the items of the particular cart
+
+    //if not delete all the active carts of the particualr SHOPPER
+
+    if (storeIdOfActiveCart instanceof Error) {
+      return res.status(500).json({
+        message: storeIdOfActiveCart
+      });
+    }
+  },
+
+  /*
+    Deletes all the active carts belonging to the user but not
+    have the same shop as the user.
+  */
+  deleteActivecarts: async cart_id => {
+    //delete active cart from the user
+    const deleteActiveCarts = "CALL delete_cart_by_id(?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(deleteActiveCarts, [cart_id])
+    );
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    //this means that the user has an active cart that belongs to the shop and the
+    // result set holds the products of the cart with the cart id
+    return resultSet;
+  },
+
+  /*
+    Gets the active cart id together with the products of the cart (based on shop)
+    if customer has cart with the shop. Gets number of active carts,
+    if customer does not have active cart in the shop.
+  */
+  getActiveCartIdAndProductInformation: async (userId, storeId) => {
+    const getCartIdAndProducts = "CALL get_customer_active_cart_products(?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(getCartIdAndProducts, [userId, storeId])
+    );
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    //this means that the user has an active cart that belongs to the shop and the
+    // result set holds the products of the cart with the cart id
+    return resultSet;
+  },
+
   addProductToUsersCartBasedOnBarcode: async (barcode, cartId) => {
     const addProductToCartBasedOnBarcode =
       "CALL add_product_based_barcode_to_user_cart(?, ?)";
@@ -297,7 +426,6 @@ module.exports = {
     const [resultSet] = queryResult;
 
     if (!resultSet.length) {
-      console.log("NO CART");
       return DB_EMPTY_RESPONSE;
     }
 
