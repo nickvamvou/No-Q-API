@@ -21,6 +21,9 @@ router.post("/login/retailer", userController.loginRetailer);
 // Log in an Admin (req.body.role will have the role of the admin)
 router.post("/login/admin", userController.loginAdmin);
 
+// Log in a customer with google. Alternatively registers a new customer and logs them in.
+router.post('/googleLogin/customer', userController.loginCustomerWithGoogle);
+
 /**
  * Change user password.
  * User must be logged in.
