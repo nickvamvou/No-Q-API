@@ -7,6 +7,7 @@ const util = require('util');
 const pool = require("../../config/db_connection");
 const cacheRegister = require('../../config/cache_register');
 const mailer = require('../../config/mailer');
+const { googleOAuth2Client } = require('../../config/google_auth');
 const role = require("./user-role");
 const jwt = require("jsonwebtoken");
 const key = require("../../config/jwt_s_key");
@@ -14,7 +15,6 @@ const utils = require('../utils');
 const { initiateResetPassword } = require('./helpers');
 
 const { SqlError } = utils;
-
 
 module.exports = {
   /*
@@ -228,6 +228,91 @@ module.exports = {
           });
       }
     });
+  },
+
+  /**
+   *
+   * This endpoint handler completes the process of logging in a customer using google OAuth2 API by first
+   * verifying `accessToken` provided by the frontend's Google Auth API or SDK, and then checking customer
+   * existence -- creates customer if none is found. If all goes well, customer is issued a NoQ JWT token
+   * containing customer `role` and `id` needed for future requests :)
+   *
+   * Alternatively flows:
+   *
+   * - If `accessToken` validation fails, execution is halted and google API error is forwarded to central
+   *    error handler.
+   *
+   * - If database error occurs while checking customer existence, execution is halted and `SqlError` is
+   *    forwarded to central error handler.
+   *
+   * - If database error occurs while creating a new customer, execution is halted and `SqlError` is forwarded
+   *   to central error handler.
+   *
+   * - If error occurs while creating a JWT token, execution is halted and `jwtError` is forwarded to central
+   *   error handler.
+   *
+   *
+   * @param `accessToken` [String] - token to validate customer to be signed in.
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  loginCustomerWithGoogle: async ({ body: { accessToken } }, res, next) => {
+    // Get information about passed `accessToken`. This validates the `accessToken` too.
+    const [tokenLookupError, tokenInfo] = await to(googleOAuth2Client.getTokenInfo(accessToken));
+
+    // Error occurred while getting `accessToken` info. Forward `tokenLookupError` to central error handler.
+    if (tokenLookupError) {
+      return next(createHttpError(tokenLookupError));
+    }
+
+    // Validation of `accessToken` has passed. Check for customer's existence.
+    const [queryError, [[existingCustomer]]] = await to(
+      pool.promiseQuery('CALL get_customer_id_by_email(?)', [tokenInfo.email])
+    );
+
+    // Sadly, something bad happened while checking customer's existence. Forward `SqlError` to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Hold `uid` for new or existing customer.
+    let customerId = existingCustomer ? existingCustomer.uid : undefined;
+
+    // Customer not found, create one!
+    if (!customerId) {
+      // Create new customer. `null` is passed as password because third party auth doesn't require it.
+      const [queryError, queryResult] = await to(
+        pool.promiseQuery('CALL create_customer(?, ?)', [tokenInfo.email, null])
+      );
+
+      // Something bad happened while creating a new customer. Forward `SqlError` to central error handler.
+      if (queryError) {
+        return next(createHttpError(new SqlError(queryError)));
+      }
+
+      // Extract last inserted id object from query result.
+      const [[lastInsertedIdObj]] = queryResult;
+
+      // Update `customerId`, Make `id` of newly created user available to rest of method
+      customerId = lastInsertedIdObj['@LID'];
+    }
+
+    // All checks passed. Everything seems good! Create JWT token containing either new or existing customer's `id` and `role`.
+    const [jwtError, token] = await to(
+      util.promisify(jwt.sign)({ id: customerId, role: role.SHOPPER }, key.jwt_key, { expiresIn: '1h' })
+    );
+
+    // Forward JWT error to central error handler.
+    if (jwtError) {
+      return next(createHttpError(500, jwtError));
+    }
+
+    // Success! Send newly issued JWT token as response.
+    res.status(200).json({
+      message: 'You\'re now logged in with Google!',
+      token
+    })
   },
 
   /**
