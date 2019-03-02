@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 
-const controller = require('api/home/controller');
-
+const controller = require('./controller');
 
 // Render API home page
 router.get(
+  '',
   controller.renderHomePage,
 );
 
