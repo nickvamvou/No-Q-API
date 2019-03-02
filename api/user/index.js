@@ -1,28 +1,10 @@
 const express = require("express");
 const router = express.Router();
-const role = require("./user-role");
-const userController = require("./user");
-const checkAuth = require("../middleware/check-auth");
-const retailerPath = require("../../config/private_routes");
 
+const userRoles = require("api/constants/user_roles");
+const checkAuth = require("api/middleware/check-auth");
+const controller = require("api/user/controller");
 
-// Sign up a Shopper
-router.post("/signup/shopper", userController.signupShopper);
-
-// Sign up an Retailer
-router.post(retailerPath, userController.signupRetailer);
-
-// Log in a Shopper (req.body.role will have the role of the shopper)
-router.post("/login/shopper", userController.loginShopper);
-
-// Log in a Retailer (req.body.role will have the role of the retailer)
-router.post("/login/retailer", userController.loginRetailer);
-
-// Log in an Admin (req.body.role will have the role of the admin)
-router.post("/login/admin", userController.loginAdmin);
-
-// Log in a customer with google. Alternatively registers a new customer and logs them in.
-router.post('/googleLogin/customer', userController.loginCustomerWithGoogle);
 
 /**
  * Change user password.
@@ -31,24 +13,8 @@ router.post('/googleLogin/customer', userController.loginCustomerWithGoogle);
  */
 router.patch(
   "/:userId/change-password",
-  checkAuth.userAuth([role.SHOPPER, role.RETAILER, role.RETAILER]),
-  userController.changePassword
-);
-
-/**
- * Initiate password reset process for a customer
- */
-router.post(
-  "/forgot-password/customer",
-  userController.initiateIndividualPassReset,
-);
-
-/**
- * Initiate password reset process for a retailer
- */
-router.post(
-  "/forgot-password/retailer",
-  userController.initiateRetailerPassReset,
+  checkAuth.userAuth([userRoles.SHOPPER, userRoles.RETAILER, userRoles.RETAILER]),
+  controller.changePassword
 );
 
 /**
@@ -56,7 +22,7 @@ router.post(
  */
 router.post(
     "/reset-password",
-    userController.resetPassword,
+    controller.resetPassword,
 );
 
 /**
@@ -64,64 +30,65 @@ router.post(
  */
 router.get(
   "/reset-password",
-  userController.renderPassResetForm,
+  controller.renderPassResetForm,
 );
 
 // Change user passwrod by an Administrator.
 router.patch(
   "/:userId/change-password/admin",
-  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-  userController.changePasswordAdmin
+  checkAuth.userAuth([userRoles.SHOPPER, userRoles.ADMIN]),
+  controller.changePasswordAdmin
 );
 
 // Delete a user only available for Shopper and Adminstrator
 router.delete(
   "/:userId/delete",
-  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-  userController.deleteUser
+  checkAuth.userAuth([userRoles.SHOPPER, userRoles.ADMIN]),
+  controller.deleteUser
 );
 
 // //get a specific order from a user
 // router.get(
 //   "/:userId/:orderId",
-//   checkAuth.userAuth([role.ADMIN, role.SHOPPER]),
+//   checkAuth.userAuth([userRoles.ADMIN, userRoles.SHOPPER]),
 //   orderController.getCompletedOrder
 // );
 //
 // //returns all the completed orders of particular user
 // router.get(
 //   "/:userId/orders",
-//   checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+//   checkAuth.userAuth([userRoles.SHOPPER, userRoles.ADMIN]),
 //   orderController.getUserCompletedOrders
 // );
 
 // Add coupon to user
-router.post("/:userId/addVoucher", userController.addVoucher);
+router.post("/:userId/addVoucher", controller.addVoucher);
 
 //update users details
 router.patch(
   "/:userId/editDetails",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-  userController.updateUserDetails
+  // checkAuth.userAuth([userRoles.SHOPPER, userRoles.ADMIN]),
+  controller.updateUserDetails
 );
 
 //returns the details of the user (firstname, lastname, dob)
 router.get(
   "/:userId/details",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-  userController.getUserDetails
+  // checkAuth.userAuth([userRoles.SHOPPER, userRoles.ADMIN]),
+  controller.getUserDetails
 );
 
 router.get(
   "/:userId/getVouchers",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-  userController.getUserVouchers
+  // checkAuth.userAuth([userRoles.SHOPPER, userRoles.ADMIN]),
+  controller.getUserVouchers
 );
 
 router.get(
   "/:userId/addVoucher",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-  userController.addVoucherToUser
+  // checkAuth.userAuth([userRoles.SHOPPER, userRoles.ADMIN]),
+  controller.addVoucherToUser
 );
+
 
 module.exports = router;

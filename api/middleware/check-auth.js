@@ -1,7 +1,6 @@
-const jwt = require("jsonwebtoken");
-const key = require("../../config/jwt_s_key.js");
-const role = require("../user/user-role");
 //This file checks for authentication, by examining the data in the JWT
+
+const jwt = require("jsonwebtoken");
 
 
 module.exports = {
@@ -11,7 +10,7 @@ module.exports = {
         const token = req.headers.authorization.split(" ")[1];
 
         //verifies that the token has been signed with the private key located in the server
-        const decoded = jwt.verify(token, key.jwt_key);
+        const decoded = jwt.verify(token, process.env.JWT_SALT_KEY);
 
         //if the person has the correct role
         if (roles.includes(decoded.role)) {

@@ -1,15 +1,16 @@
 const express = require("express");
 const router = express.Router();
-const productDetailsController = require("./product_details");
-const checkAuth = require("../middleware/check-auth");
-const role = require("../user/user-role");
+
+const controller = require("api/product_details/controller");
+const checkAuth = require("api/middleware/check-auth");
+const userRoles = require("api/constants/user_roles");
 
 
 // Update product details information
 router.patch(
   "/:productDetailsId",
-  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  productDetailsController.updateProductDetails
+  checkAuth.userAuth([userRoles.RETAILER, userRoles.ADMIN]),
+  controller.updateProductDetails
 );
 
 

@@ -1,6 +1,3 @@
-const errors = require('./errors');
-
-
 module.exports = {
-  ...errors,
+  SqlError: require('./error_constructors').SqlError,
 };

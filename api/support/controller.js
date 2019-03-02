@@ -4,9 +4,8 @@
 const createHttpError = require("http-errors");
 const to = require('await-to-js').default;
 
-const pool = require("../../config/db_connection");
-const mailer = require('../../config/mailer');
-const { SqlError } = require('../utils');
+const { dbConn, mailer } = require("api/config");
+const { SqlError } = require('api/utils');
 
 
 /**
@@ -34,7 +33,7 @@ const { SqlError } = require('../utils');
  */
 const sendMessage = async ({ body, userData: { id: userId } }, res, next) => {
   // Retrieve user email from database.
-  const [queryError, [[email]]] = await to(pool.promiseQuery('CALL get_user_email_by_id(?)', [userId]));
+  const [queryError, [[email]]] = await to(dbConn.promiseQuery('CALL get_user_email_by_id(?)', [userId]));
 
   // Database error occurred while getting user `email`. Forward `SqlError` to central error handler.
   if (queryError) {
