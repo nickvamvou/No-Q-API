@@ -1,20 +1,19 @@
 //This defines the user controller
 const createHttpError = require("http-errors");
-const path = require('path');
+const path = require("path");
 const bcrypt = require("bcrypt");
-const to = require('await-to-js').default;
-const util = require('util');
+const to = require("await-to-js").default;
+const util = require("util");
 const pool = require("../../config/db_connection");
-const cacheRegister = require('../../config/cache_register');
-const mailer = require('../../config/mailer');
+const cacheRegister = require("../../config/cache_register");
+const mailer = require("../../config/mailer");
 const role = require("./user-role");
 const jwt = require("jsonwebtoken");
 const key = require("../../config/jwt_s_key");
-const utils = require('../utils');
-const { initiateResetPassword } = require('./helpers');
+const utils = require("../utils");
+const { initiateResetPassword } = require("./helpers");
 
 const { SqlError } = utils;
-
 
 module.exports = {
   /*
@@ -528,9 +527,13 @@ module.exports = {
    * @param next - function that forwards processes to the next express handler or middleware
    */
   initiateIndividualPassReset: async (req, res, next) => {
-    const { body: { email } } = req;
+    const {
+      body: { email }
+    } = req;
     const individualUserQuery = "CALL get_individual_details_by_email(?)";
-    const [queryError, queryResult] = await to(pool.promiseQuery(individualUserQuery, [email]));
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(individualUserQuery, [email])
+    );
 
     if (queryError) {
       return next(createHttpError(500, new SqlError(queryError)));
@@ -540,9 +543,12 @@ module.exports = {
     const [resultSet] = queryResult;
 
     if (!resultSet.length) {
-      return next(createHttpError(
-        404, `Unfortunately, '${email}' is not associated with any account.`
-      ));
+      return next(
+        createHttpError(
+          404,
+          `Unfortunately, '${email}' is not associated with any account.`
+        )
+      );
     }
 
     const [{ first_name }] = resultSet;
@@ -562,10 +568,14 @@ module.exports = {
    * @param next - function that forwards processes to the next express handler or middleware
    */
   initiateRetailerPassReset: async (req, res, next) => {
-    const { body: { email } } = req;
+    const {
+      body: { email }
+    } = req;
 
     // Issue query to get retailer info
-    const [queryError, queryResult] = await to(pool.promiseQuery("CALL get_retailer_details_by_email(?)", [email]));
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery("CALL get_retailer_details_by_email(?)", [email])
+    );
 
     // Forward fatal error to global error handler
     if (queryError) {
@@ -577,9 +587,12 @@ module.exports = {
 
     // If no retailer is found, forward a 404 HTTP error to the global error handler
     if (!resultSet.length) {
-      return next(createHttpError(
-        404, `Unfortunately, '${email}' is not associated with any account.`
-      ));
+      return next(
+        createHttpError(
+          404,
+          `Unfortunately, '${email}' is not associated with any account.`
+        )
+      );
     }
 
     // Retrieve retailer's brand name
@@ -601,9 +614,15 @@ module.exports = {
    * @param res - express response object
    * @param next - function that forwards processes to the next express handler or middleware
    */
-  resetPassword: async ({ body: { token: forgotPassToken, newPassword } }, res, next) => {
+  resetPassword: async (
+    { body: { token: forgotPassToken, newPassword } },
+    res,
+    next
+  ) => {
     // Attempt to Verify token. If successful, returns decoded data with user's email ana other info
-    const [jwtError, decodedData] = await to(util.promisify(jwt.verify)(forgotPassToken, key.jwt_key));
+    const [jwtError, decodedData] = await to(
+      util.promisify(jwt.verify)(forgotPassToken, key.jwt_key)
+    );
 
     // Forward fatal error to global error handler
     if (jwtError) {
@@ -612,13 +631,15 @@ module.exports = {
 
     // Token is not available anymore, probably expired, invalid, or doesn't meet same conditions as when created
     if (!decodedData) {
-      return next(createHttpError(404, 'Token not available'));
+      return next(createHttpError(404, "Token not available"));
     }
 
     const { email, referenceName } = decodedData;
 
     // Retrieve copy of token saved in cache register for authentication and validation.
-    const [cacheRegisterErr, token] = await to(cacheRegister.get(`forgot-pass-token-${email}`));
+    const [cacheRegisterErr, token] = await to(
+      cacheRegister.get(`forgot-pass-token-${email}`)
+    );
 
     // Forward fatal error to global error handler
     if (cacheRegisterErr) {
@@ -627,11 +648,15 @@ module.exports = {
 
     // Token doesn't match. Someone is playing games! Halt process here.
     if (token !== forgotPassToken) {
-      return next(createHttpError(400, 'Provided token doesn\'t match saved token'));
+      return next(
+        createHttpError(400, "Provided token doesn't match saved token")
+      );
     }
 
     // Encrypt new password
-    const [passHashErr, hashedPass] = await to(module.exports.hashPassword(newPassword));
+    const [passHashErr, hashedPass] = await to(
+      module.exports.hashPassword(newPassword)
+    );
 
     // Forward fatal error to global error handler
     if (passHashErr) {
@@ -639,7 +664,12 @@ module.exports = {
     }
 
     // Issue query to DB to update user password
-    const [userQueryError] = await to(pool.promiseQuery(`CALL change_user_password_by_email(?, ?)`, [email, hashedPass]));
+    const [userQueryError] = await to(
+      pool.promiseQuery(`CALL change_user_password_by_email(?, ?)`, [
+        email,
+        hashedPass
+      ])
+    );
 
     // Forward fatal error to global error handler
     if (userQueryError) {
@@ -649,11 +679,11 @@ module.exports = {
     // Configure mailer options
     const mailOptions = {
       to: email,
-      from: 'no-q@info.io',
-      template: 'password-reset-success',
-      subject: 'Your password has been changed successfully',
+      from: "no-q@info.io",
+      template: "password-reset-success",
+      subject: "Your password has been changed successfully",
       context: {
-        name: referenceName,
+        name: referenceName
       }
     };
 
@@ -667,7 +697,7 @@ module.exports = {
 
     // Dish out success message :)
     return res.status(200).json({
-      message: 'Your password has been changed successfully',
+      message: "Your password has been changed successfully"
     });
   },
 
@@ -679,7 +709,7 @@ module.exports = {
    */
   renderPassResetForm: async (req, res) => {
     // Send static HTML file.
-    res.sendFile(path.resolve('./public/templates/reset-password.html'));
+    res.sendFile(path.resolve("./public/templates/reset-password.html"));
   },
 
   /**
@@ -782,11 +812,92 @@ module.exports = {
     //add it to the voucher_user
   },
 
+  getPreviousPurchases: async (req, res, next) => {
+    //TODO implement authorization
+
+    var purchases = await module.exports.getPreviousPurchasesDB(
+      req.params.userId
+    );
+    if (purchases instanceof Error) {
+      return res.status(500).json({
+        message: purchases
+      });
+    }
+    return res.status(200).json({
+      purchases: purchases
+    });
+  },
+
+  /**
+   * Retrieves all the details of a specific purchase
+   */
+  getDetailsOfPreviousPurchase: async (req, res, next) => {
+    //TODO implement authorization
+
+    var purchaseDetails = await module.exports.getPreviousPurchasesDB(
+      req.params.userId
+    );
+    if (purchaseDetails instanceof Error) {
+      return res.status(500).json({
+        message: purchases
+      });
+    }
+    return res.status(200).json({
+      purchaseDetails: purchaseDetails
+    });
+  },
+
   /*
   ******************************************************************************
                             Helper Functions
   ******************************************************************************
   */
+
+  /**
+   * Retrieves all the details of a specific purchase
+   */
+  getDetailsOfPreviousPurchaseDB: async purchase_id => {
+    const getDetailsofPreviousPurchaseDB =
+      "CALL get_details_of_previous_purchase(?)";
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(getDetailsofPreviousPurchaseDB, [purchase_id])
+    );
+    const [resultSet] = queryResult;
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    } else {
+      return resultSet;
+    }
+  },
+
+  filterPurchaseDetails: purchaseDetails => {
+    purchaseDetails = {};
+    product_detail_product_id_quantity = {};
+    products = [];
+
+    for (var entry of purchaseDetails) {
+    }
+  },
+
+  /**
+   * Retrieves all the purchases of a user and sends based on the userId
+   */
+  getPreviousPurchasesDB: async userId => {
+    console.log("goes");
+    const getPreviousPurchasesDB = "CALL get_previous_purchases(?)";
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(getPreviousPurchasesDB, [userId])
+    );
+    const [resultSet] = queryResult;
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    } else {
+      return resultSet;
+    }
+  },
+
   hashPassword: async password => {
     return (hashedPassword = await new Promise((resolve, reject) => {
       bcrypt.hash(password, 10, (err, hash) => {

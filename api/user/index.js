@@ -5,7 +5,6 @@ const userController = require("./user");
 const checkAuth = require("../middleware/check-auth");
 const retailerPath = require("../../config/private_routes");
 
-
 // Sign up a Shopper
 router.post("/signup/shopper", userController.signupShopper);
 
@@ -37,7 +36,7 @@ router.patch(
  */
 router.post(
   "/forgot-password/customer",
-  userController.initiateIndividualPassReset,
+  userController.initiateIndividualPassReset
 );
 
 /**
@@ -45,24 +44,18 @@ router.post(
  */
 router.post(
   "/forgot-password/retailer",
-  userController.initiateRetailerPassReset,
+  userController.initiateRetailerPassReset
 );
 
 /**
  * Resets user password
  */
-router.post(
-    "/reset-password",
-    userController.resetPassword,
-);
+router.post("/reset-password", userController.resetPassword);
 
 /**
  * Renders html template with form to reset password
  */
-router.get(
-  "/reset-password",
-  userController.renderPassResetForm,
-);
+router.get("/reset-password", userController.renderPassResetForm);
 
 // Change user passwrod by an Administrator.
 router.patch(
@@ -107,6 +100,18 @@ router.get(
   "/:userId/details",
   // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getUserDetails
+);
+
+router.get(
+  "/:userId/purchases",
+  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.getPreviousPurchases
+);
+
+router.get(
+  "/:userId/:purchaseId/purchase",
+  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.getDetailsOfPreviousPurchase
 );
 
 router.get(
