@@ -12,6 +12,7 @@ const productDetailsRouter = require("./api/product_details/index");
 var storeRouter = require("./api/store/index");
 var usersRouter = require("./api/user/index");
 var cartRouter = require("./api/shopping_cart/index");
+const supportAPI = require('./api/support');
 
 var app = express();
 
@@ -54,6 +55,7 @@ app.use("/products", productsRouter);
 app.use("/productDetails", productDetailsRouter);
 app.use("/shopping_cart", cartRouter);
 app.use("/store", storeRouter);
+app.use("/support", supportAPI);
 /*
 *******************************************************************************
                                 End
