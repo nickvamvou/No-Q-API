@@ -1,6 +1,7 @@
 const to = require('await-to-js').default;
 const createHttpError = require("http-errors");
 const fs = require("fs");
+const util = require('util');
 
 const pool = require("../../config/db_connection");
 const role = require("../user/user-role");
@@ -428,6 +429,197 @@ module.exports = {
 
     // Dish out final result :)
     res.status(200).json(resultSet[0])
+  },
+
+  /**
+   *
+   * Endpoint: `POST store/:storeId/itemGroups`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler creates a new item group -- e.g a for a shirt that comes in different colors and sizes,
+   * then adds item group to a category if a `categoryId` is provided, creates option groups and corresponding values,
+   * and finally adds each created option value to the item group. This sequence of operations is enveloped in a
+   * database transaction for better management :)
+   *
+   * If all goes well, Retailer gets id of newly created item group to be used for further actions.
+   *
+   * Alternatively flows:
+   *
+   * - If error occurs while getting a connection from the pool, forward error to central error handler.
+   *
+   * - If error occurs while starting a transaction, forward error to central error handler.
+   *
+   * - If error occurs while executing any of the queries within the context of the DB transaction,
+   *   rollback DB surface changes made so far, release connection, and forward error to central error handler.
+   *
+   * - If error occurs while committing changes so far to database, rollback all the surface changes.
+   *
+   *
+   * @param `name` [String] - Name of the item group.
+   * @param `description` [String] = Description of the item group, providing more context.
+   * @param `code` [String] - Unique code assigned to item group.
+   * @param `categoryId` [Number] - `id` of the category the item group should belong to -- e.g Electronics.
+   * @param `optionGroups` [Array] - A list of grouped option values by name.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   *
+   * TODO: Abstract database transaction code into a DatabaseTransaction class that can be reused.
+   *
+   * TODO: --- Find a good alternative to nested for loops for creating option groups and associated values. ---
+   * TODO: --- Potential mild performance bottleneck here. ---
+   *
+   * TODO: DRY up the block of code handling database query errors! Code becomes bloated when using DB transactions.
+   *
+   * TODO: --- Consider splitting up this endpoint handler into maybe 2 handlers that can be used on the same route; ---
+   * TODO: --- controller/handler chaining. Express makes this seamless and clean! Or, it maybe it might be cleaner ---
+   * TODO: --- to have a dedicated endpoint for adding option groups and values to an item group. Something like
+   * TODO: --- `/store/:storeId/itemGroups/:itemGroupId/options` -- GET and POST. It'll be easier to auto test!
+   *
+   * TODO: Is there a better data structure to represent option groups and corresponding values?
+   *
+   */
+  createItemGroup: async ({ body: { name, description, code, categoryId, optionGroups } }, res, next) => {
+    // Transactions need to maintain changes made across sequence of actions -- the state of every query.
+    // Thus, the need for a single connection instance.
+    // Grab a free connection instance for the connection pool.
+    const [ connErr, conn ] = await to(pool.getConnection());
+
+    // Forward `connErr` to central error handler
+    if (connErr) {
+      return next(createHttpError(connErr));
+    }
+
+    // Create promise-based transaction functions.
+    const beginTransaction = util.promisify(conn.beginTransaction).bind(conn);
+    const query = util.promisify(conn.query).bind(conn);
+    const rollback = util.promisify(conn.rollback).bind(conn);
+    const commit = util.promisify(conn.commit).bind(conn);
+
+    // Begin new database transaction.
+    const [ beginTransErr ] = await to(beginTransaction());
+
+    // Error starting database transaction. Forward error!
+    if (beginTransErr) {
+      return next(createHttpError(beginTransErr));
+    }
+
+    /* Every query from here on is executed within the database transaction. */
+
+    // Issue query to create new item group.
+    let [ queryError, queryResult ] = await to(
+      query('call create_item_group(?, ?, ?)', [
+        name,
+        description,
+        code,
+      ])
+    );
+
+    // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
+    // error handler.
+    if (queryError) {
+      await rollback();
+      conn.release();
+
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get `itemGroupId` from query result.
+    const [ [ { item_group_id: itemGroupId } ] ] = queryResult;
+
+    // Add item group to a category if needed -- `categoryId` is provided.
+    if (categoryId) {
+      [ queryError ] = await to(query('call add_item_group_to_a_category(?, ?)', [
+        itemGroupId,
+        categoryId,
+      ]));
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+    }
+
+    // Create option groups and values for created item group. Starts by going over `optionGroups` list/array
+    // containing mapped option values to group names.
+    for (const { name: optionGroupName, values: optionGroupValues } of optionGroups) {
+      // Issue query to create new option group.
+      [ queryError, queryResult ] = await to(
+        query('call create_option_group(?)', [ optionGroupName ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+
+      // Get `optionGroupId` from query result for next query.
+      const [ [ { option_group_id: optionGroupId } ] ] = queryResult;
+
+      // Slap on values to the newly created option group.
+      for (const optionGroupValue of optionGroupValues) {
+        // Issue query to create option values for newly created option group.
+        let [ queryError, queryResult ] = await to(
+          query(('call create_option_group_value(?, ?)'), [ optionGroupId, optionGroupValue ])
+        );
+
+        // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+        // central error handler.
+        if (queryError) {
+          await rollback();
+          conn.release();
+
+          return next(createHttpError(new SqlError(queryError)));
+        }
+
+        // Get `optionValueId` from query result for next query.
+        const [ [ { option_value_id: optionValueId } ] ] = queryResult;
+
+        // Add newly created option value to an item group.
+        [ queryError ] = await to(
+          query('call add_option_to_an_item_group(?, ?)', [ itemGroupId, optionValueId ])
+        );
+
+        // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+        // central error handler.
+        if (queryError) {
+          await rollback();
+          conn.release();
+
+          return next(createHttpError(new SqlError(queryError)));
+        }
+      }
+    }
+
+    // Make database changes so far persistent. Commit it!
+    const [ commitErr ] = await to(commit());
+
+    // If error occurs while persisting changes, rollback!
+    if (commitErr) {
+      await rollback();
+    }
+
+    // Finally, DB connection has served its purpose. Release it back into the pool.
+    conn.release();
+
+    // Respond with newly created `itemGroupId` and some message.
+    res.json({
+      message: 'Item group has been created',
+      data: {
+        id: itemGroupId,
+      },
+    })
   },
 
   /**
@@ -874,7 +1066,7 @@ module.exports = {
           } else {
             //if redeemable is already false dont set it again to FALSE
             //its is not redeemable
-            if (result[0][0].reedemable.includes(00)) {
+            if (result[0][0].reedemable.includes(0o00)) {
               reject(2);
             }
             resolve(result[0][0].coupon_id);
