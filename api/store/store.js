@@ -636,7 +636,7 @@ module.exports = {
    *
    * Alternative flows:
    *
-   * - If error occurs while getting a item groups from DB, forward error to central error handler.
+   * - If error occurs while getting item groups from DB, forward error to central error handler.
    *
    *
    * @param `req` [Object] - Express's HTTP request object.
