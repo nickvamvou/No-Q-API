@@ -623,6 +623,44 @@ module.exports = {
   },
 
   /**
+   * Endpoint: `GET store/:storeId/itemGroups`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler gets all item groups for a particular store along with the number of
+   * associated `product details` for each item group.
+   *
+   * If all goes well, Retailer gets a list/array of all item groups with each item containing the;
+   * group `name`, `item_code`, and `product_details_count`.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting item groups from DB, forward error to central error handler.
+   *
+   *
+   * @param `req` [Object] - Express's HTTP request object.
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getAllItemGroups: async (req, res, next) => {
+    // Issue query to get all item groups.
+    let [queryError, queryResult] = await to(pool.promiseQuery('call get_all_item_groups'));
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get items groups from query result.
+    const [itemGroups] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json(itemGroups);
+  },
+
+  /**
    * Adds the products option groups and values given by the user.
    * @param {[type]}   req  [description]
    * @param {[type]}   res  [description]

@@ -8,9 +8,6 @@ const pool = require("../../config/db_connection");
 
 const cacheRegister = require("../../config/cache_register");
 const mailer = require("../../config/mailer");
-
-const cacheRegister = require("../../config/cache_register");
-const mailer = require("../../config/mailer");
 const { googleOAuth2Client } = require("../../config/google_auth");
 
 const role = require("./user-role");
@@ -1088,7 +1085,7 @@ module.exports = {
           if (result[0][0].reedemable === null) {
             return rej(2);
           } //its is not redeemable
-          if (result[0][0].reedemable.includes(00)) {
+          if (result[0][0].reedemable.includes(0o00)) {
             return rej(3);
           }
           //its redeemable
