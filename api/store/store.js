@@ -445,7 +445,7 @@ module.exports = {
    *
    * If all goes well, Retailer gets id of newly created item group to be used for further actions.
    *
-   * Alternatively flows:
+   * Alternative flows:
    *
    * - If error occurs while getting a connection from the pool, forward error to central error handler.
    *
