@@ -74,6 +74,14 @@ router.delete(
   storeController.removeItem
 );
 
+// Create a new item group
+router.post(
+  "/:storeId/itemGroups",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.createItemGroup
+);
+
+
 // Update a product in a store
 router.patch(
   "/:storeId/:productId",
