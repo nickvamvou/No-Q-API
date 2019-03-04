@@ -475,7 +475,7 @@ module.exports = {
    * TODO: DRY up the block of code handling database query errors! Code becomes bloated when using DB transactions.
    *
    * TODO: --- Consider splitting up this endpoint handler into maybe 2 handlers that can be used on the same route; ---
-   * TODO: --- controller/handler chaining. Express makes this seamless and clean! Or, it maybe it might be cleaner ---
+   * TODO: --- controller/handler chaining. Express makes this seamless and clean! It might be cleaner ---
    * TODO: --- to have a dedicated endpoint for adding option groups and values to an item group. Something like
    * TODO: --- `/store/:storeId/itemGroups/:itemGroupId/options` -- GET and POST. It'll be easier to auto test!
    *
