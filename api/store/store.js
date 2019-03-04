@@ -657,11 +657,14 @@ module.exports = {
     const [itemGroups] = queryResult;
 
     // Respond with list of all item groups.
-    res.json(itemGroups);
+    res.json({
+      data: itemGroups,
+    });
   },
 
   /**
    * Adds the products option groups and values given by the user.
+   *
    * @param {[type]}   req  [description]
    * @param {[type]}   res  [description]
    * @param {Function} next [description]
