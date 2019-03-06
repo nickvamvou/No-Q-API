@@ -99,7 +99,7 @@ router.patch(
 router.post(
   "/:storeId/productDetails",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.addNewProductDetails
+  storeController.createProductDetails
 );
 
 // Get all product details in a store

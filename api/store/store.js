@@ -340,23 +340,50 @@ module.exports = {
   },
 
   /**
-   * Creates new details of a product and return the id of the newly added record.
+   * Endpoint: `POST store/:storeId/productDetails`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
    *
-   * @param req - express request object containing information about the request -- request payload, route params, etc
-   * @param res - express response object
-   * @param next - function that forwards processes to the next express handler or middleware
+   *
+   * This endpoint handler creates new details for a product
+   * and returns the id of the newly added record when successful.
+   *
+   * Alternative flows;
+   *
+   * - If error occurs while executing query within the context of the DB transaction,
+   *   rollback DB surface changes made so far, release connection, and forward error to central error handler.
+   *
+   *
+   * @param `body` [Object] - Payload object
+   *
+   * @param `body.name` [String] - Name of the product.
+   * @param `body.barcode` [String] - String containing characters that represent a barcode.
+   * @param `body.SKU` [String] - Store Keeping Unit code.
+   * @param `body.quantity` [Number] - No of item of this product..
+   * @param `body.price` [Decimal] - Price of the product.
+   * @param `body.itemGroupId` [Number] - ID of the item group that the specific product belongs to.
+   * @param `storeId` [Number] - ID of the store that product should to be created in.
+   * @param `userId` [Number] - Id of retailer performing action.
+   * @param `body.options` [Array] - A list of options references -- options IDs. e.g red, small, etc.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
    */
-  addNewProductDetails: async (req, res, next) => {
-    // Issue query to DB to create new details for a product
-    const [queryError, queryResult] = await to(pool.promiseQuery('CALL create_product_details(?, ?, ?, ?, ?, ?, ?)', [
-      req.body.name,
-      req.body.weight,
-      req.body.stock,
-      req.body.description,
-      req.body.retailerProductId,
-      req.params.storeId,
-      req.userData.id,
-    ]));
+  createProductDetails: async ({ body, params: { storeId }, userData: { id: userId } }, res, next) => {
+    // Issue query to DB to create new details of a product along with the item group it belongs to.
+    let [ queryError, queryResult ] = await to(
+      pool.promiseQuery('call create_product_details(?, ?, ?, ?, ?, ?, ?, ?)', [
+        body.name,
+        body.barcode,
+        body.SKU,
+        body.quantity,
+        body.price,
+        body.itemGroupId,
+        storeId,
+        userId,
+      ])
+    );
 
     // Forward fatal error to global error handler
     if (queryError) {
@@ -364,10 +391,30 @@ module.exports = {
     }
 
     // Retrieve actual result set from query result
-    const [resultSet] = queryResult;
+    const [ [ { product_details_id: productDetailsId } ] ] = queryResult;
+
+    // Issue query to DB to bulk insert option value references.
+    // TODO: If there's a way to abstract this query to an SP, that'd be great! Right now, there's no way to pass a
+    // TODO: list to an SP :(
+    [ queryError ] = await to(
+      pool.promiseQuery(
+        'insert into masterdb.product_options (product_detail_id, option_id) values ?',
+        [ body.options.map((optionId) => [ productDetailsId, optionId ]) ]
+      )
+    );
+
+    // Forward fatal error to global error handler
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
 
     // Dish out final result :)
-    res.status(200).json(resultSet);
+    res.json({
+      message: 'Product details was created',
+      data: {
+        id: productDetailsId,
+      }
+    });
   },
 
   /**
