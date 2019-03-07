@@ -78,7 +78,14 @@ router.delete(
 router.post(
   "/:storeId/itemGroups",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.createItemGroup
+  storeController.createOrUpdateItemGroup
+);
+
+// Update an item group
+router.patch(
+  "/:storeId/itemGroups/:itemGroupId",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.createOrUpdateItemGroup
 );
 
 // Get all item groups.
