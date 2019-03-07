@@ -509,6 +509,8 @@ module.exports = {
    * @param `code` [String] - Unique code assigned to item group.
    * @param `categoryId` [Number] - `id` of the category the item group should belong to -- e.g Electronics.
    * @param `optionGroups` [Array] - A list of grouped option values by name.
+   * @param `storeId` [Number] - `id` of the store where item group will be created.
+   * @param `itemGroupId` [Number] - Only required for updating an item group.
    *
    * @param `res` [Object] - Express's HTTP response object.
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
@@ -580,9 +582,8 @@ module.exports = {
 
     // Only add new item group to store.
     if (!existingItemGroupId) {
-      console.log('does it do this?');
       // Issue query to add item group to store.
-      [ queryError, queryResult ] = await to(
+      [ queryError ] = await to(
         query('call add_store_item_group(?, ?)', [
           itemGroupId,
           storeId,
@@ -685,6 +686,7 @@ module.exports = {
 
     // Respond with newly created `itemGroupId` and some message.
     res.json({
+      message: `Item group was successfully ${!existingItemGroupId ? 'created' : 'updated'}`,
       data: {
         id: itemGroupId,
       },
