@@ -480,12 +480,12 @@ module.exports = {
 
   /**
    *
-   * Endpoint: `POST store/:storeId/itemGroups`
+   * Endpoints: [`POST store/:storeId/itemGroups`, `PATCH store/:storeId/itemGroups/:itemGroupId`]
    * Primary actors: [ Retailer ]
    * Secondary actors: None
    *
    *
-   * This endpoint handler creates a new item group -- e.g a for a shirt that comes in different colors and sizes,
+   * This endpoint handler creates or updates an item group -- e.g a for a shirt that comes in different colors and sizes,
    * then adds item group to a category if a `categoryId` is provided, creates option groups and corresponding values,
    * and finally adds each created option value to the item group. This sequence of operations is enveloped in a
    * database transaction for better management :)
@@ -529,7 +529,7 @@ module.exports = {
    * TODO: Is there a better data structure to represent option groups and corresponding values?
    *
    */
-  createItemGroup: async ({ body: { name, description, code, categoryId, optionGroups } }, res, next) => {
+  createOrUpdateItemGroup: async ({ body: { name, description, code, categoryId, optionGroups }, params: { storeId, itemGroupId: existingItemGroupId } }, res, next) => {
     // Transactions need to maintain changes made across sequence of actions -- the state of every query.
     // Thus, the need for a single connection instance.
     // Grab a free connection instance for the connection pool.
@@ -558,7 +558,8 @@ module.exports = {
 
     // Issue query to create new item group.
     let [ queryError, queryResult ] = await to(
-      query('call create_item_group(?, ?, ?)', [
+      query('call create_or_update_item_group(?, ?, ?, ?)', [
+        existingItemGroupId,
         name,
         description,
         code,
@@ -577,9 +578,30 @@ module.exports = {
     // Get `itemGroupId` from query result.
     const [ [ { item_group_id: itemGroupId } ] ] = queryResult;
 
+    // Only add new item group to store.
+    if (!existingItemGroupId) {
+      console.log('does it do this?');
+      // Issue query to add item group to store.
+      [ queryError, queryResult ] = await to(
+        query('call add_store_item_group(?, ?)', [
+          itemGroupId,
+          storeId,
+        ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
+      // error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+    }
+
     // Add item group to a category if needed -- `categoryId` is provided.
     if (categoryId) {
-      [ queryError ] = await to(query('call add_item_group_to_a_category(?, ?)', [
+      [ queryError ] = await to(query('call add_or_change_item_group_category(?, ?)', [
         itemGroupId,
         categoryId,
       ]));
@@ -596,10 +618,10 @@ module.exports = {
 
     // Create option groups and values for created item group. Starts by going over `optionGroups` list/array
     // containing mapped option values to group names.
-    for (const { name: optionGroupName, values: optionGroupValues } of optionGroups) {
+    for (const { id: existingOptionGroupId, name: optionGroupName, options } of optionGroups) {
       // Issue query to create new option group.
       [ queryError, queryResult ] = await to(
-        query('call create_option_group(?)', [ optionGroupName ])
+        query('call create_or_update_option_group(?, ?)', [ existingOptionGroupId, optionGroupName ])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
@@ -615,27 +637,28 @@ module.exports = {
       const [ [ { option_group_id: optionGroupId } ] ] = queryResult;
 
       // Slap on values to the newly created option group.
-      for (const optionGroupValue of optionGroupValues) {
+      for (const { id: existingOptionId, name: optionName } of options) {
         // Issue query to create option values for newly created option group.
         let [ queryError, queryResult ] = await to(
-          query(('call create_option_group_value(?, ?)'), [ optionGroupId, optionGroupValue ])
+          query('call create_or_update_option(?, ?, ?)', [ existingOptionId, optionGroupId, optionName ])
         );
 
         // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
         // central error handler.
         if (queryError) {
+          console.log(queryError);
           await rollback();
           conn.release();
 
           return next(createHttpError(new SqlError(queryError)));
         }
 
-        // Get `optionValueId` from query result for next query.
-        const [ [ { option_value_id: optionValueId } ] ] = queryResult;
+        // Get `optionId` from query result for next query.
+        const [ [ { option_id: optionId } ] ] = queryResult;
 
         // Add newly created option value to an item group.
         [ queryError ] = await to(
-          query('call add_option_to_an_item_group(?, ?)', [ itemGroupId, optionValueId ])
+          query('call add_or_change_item_group_option(?, ?)', [ itemGroupId, optionId ])
         );
 
         // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
@@ -662,7 +685,6 @@ module.exports = {
 
     // Respond with newly created `itemGroupId` and some message.
     res.json({
-      message: 'Item group has been created',
       data: {
         id: itemGroupId,
       },
