@@ -524,10 +524,10 @@ module.exports = {
    * Secondary actors: None
    *
    *
-   * This endpoint handler creates or updates an item group -- e.g a for a shirt that comes in different colors and sizes,
-   * then adds item group to a category if a `categoryId` is provided, creates option groups and corresponding values,
-   * and finally adds each created option value to the item group. This sequence of operations is enveloped in a
-   * database transaction for better management :)
+   * This endpoint handler creates or updates an item group -- e.g a for a shirt that comes in different colors and
+   * sizes, then adds item group to a category if a `categoryId` is provided, creates option groups and corresponding
+   * values, and finally adds each created option value to the item group. This sequence of operations is enveloped in
+   * a database transaction for better management :)
    *
    * If all goes well, Retailer gets id of newly created item group to be used for further actions.
    *
@@ -562,7 +562,8 @@ module.exports = {
    *
    * TODO: DRY up the block of code handling database query errors! Code becomes bloated when using DB transactions.
    *
-   * TODO: --- Consider splitting up this endpoint handler into maybe 2 handlers that can be used on the same route; ---
+   * TODO: --- Consider splitting up this endpoint handler into maybe 2 handlers that can be used on the same route;
+   *   ---
    * TODO: --- controller/handler chaining. Express makes this seamless and clean! It might be cleaner ---
    * TODO: --- to have a dedicated endpoint for adding option groups and values to an item group. Something like
    * TODO: --- `/store/:storeId/itemGroups/:itemGroupId/options` -- GET and POST. It'll be easier to auto test!
@@ -770,6 +771,44 @@ module.exports = {
     res.json({
       data: itemGroups,
     });
+  },
+
+  /**
+   *
+   * Endpoint: `GET store/:storeId/scannedUnpaidProducts`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler gets all scanned products that hasn't been paid for
+   * in a store, along with user info, item group info and other related info.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting scanned unpaid item from DB,
+   *   halt process and forward error to central error handler.
+   *
+   *
+   * @param `storeId` [Object] - Resource identity number of the store to get scanned unpaid items from.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getScannedUnpaidProducts: async ({ params: { storeId } }, res, next) => {
+    // Issue query to get all scanned unpaid products.
+    let [ queryError, queryResult ] = await to(pool.promiseQuery('call get_current_scanned_items(?)', [ storeId ]));
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get returned products from query result.
+    const [ data ] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json({ data });
   },
 
   /**

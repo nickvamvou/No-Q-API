@@ -117,6 +117,13 @@ router.post(
   storeController.createProductDetails
 );
 
+// Get all scanned unpaid products
+router.get(
+  "/:storeId/scannedUnpaidProducts",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.getScannedUnpaidProducts
+);
+
 // Get all product details in a store
 router.get(
   "/:storeId/productDetails",
