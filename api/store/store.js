@@ -805,12 +805,10 @@ module.exports = {
     }
 
     // Get returned products from query result.
-    const [ products ] = queryResult;
+    const [ data ] = queryResult;
 
     // Respond with list of all item groups.
-    res.json({
-      data: products,
-    });
+    res.json({ data });
   },
 
   /**
