@@ -479,6 +479,45 @@ module.exports = {
   },
 
   /**
+   * Endpoint: `GET store/:storeId/itemGroups/:itemGroupId/products`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler retrieves all specific details of a product
+   * for a particular item group.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting product details from the database,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `itemGroupId` [Number] - `id` of the item group
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getProductDetailsByItemGroup: async ({ params: { itemGroupId } }, res, next) => {
+    // Issue query to get details of a product in a store
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery('CALL get_product_details_by_item_group_id(?)', [ itemGroupId ])
+    );
+
+    // Forward fatal error to global error handler
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Retrieve actual result set from query result
+    const [productDetails] = queryResult;
+
+    // Dish out final result :)
+    res.json({
+      data: productDetails,
+    })
+  },
+
+  /**
    *
    * Endpoints: [`POST store/:storeId/itemGroups`, `PATCH store/:storeId/itemGroups/:itemGroupId`]
    * Primary actors: [ Retailer ]
