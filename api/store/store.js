@@ -573,7 +573,7 @@ module.exports = {
    * TODO: Is there a better data structure to represent option groups and corresponding values?
    *
    */
-  createOrUpdateItemGroup: async ({ body: { name, description, code, categoryId, optionGroups }, params: { storeId, itemGroupId: existingItemGroupId } }, res, next) => {
+  createOrUpdateItemGroup: async ({ body: { name, description, code, categoryId, optionGroups }, params: { storeId, itemGroupId: existingItemGroupId }, userData: { id: userId } }, res, next) => {
     // Transactions need to maintain changes made across sequence of actions -- the state of every query.
     // Thus, the need for a single connection instance.
     // Grab a free connection instance for the connection pool.
@@ -602,11 +602,13 @@ module.exports = {
 
     // Issue query to create new item group.
     let [ queryError, queryResult ] = await to(
-      query('call create_or_update_item_group(?, ?, ?, ?)', [
+      query('call create_or_update_item_group(?, ?, ?, ?, ?, ?)', [
         existingItemGroupId,
         name,
         description,
         code,
+        storeId,
+        userId,
       ])
     );
 
