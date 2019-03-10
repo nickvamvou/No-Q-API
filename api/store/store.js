@@ -574,7 +574,7 @@ module.exports = {
    *
    */
   createOrUpdateItemGroup: async (
-    { body: { name, description, code, categoryId, optionGroups },
+    { body: { name, description, code, categoryId, groupedOptions },
       params: { storeId, itemGroupId: existingItemGroupId },
       userData: { id: userId }
     }, res, next
@@ -668,10 +668,10 @@ module.exports = {
 
     // Create option groups and values for created item group. Starts by going over `optionGroups` list/array
     // containing mapped option values to group names.
-    for (const { id: existingOptionGroupId, name: optionGroupName, options } of optionGroups) {
+    for (const { group, options } of groupedOptions) {
       // Issue query to create new option group.
       [ queryError, queryResult ] = await to(
-        query('call create_or_update_option_group(?, ?)', [ existingOptionGroupId, optionGroupName ])
+        query('call create_or_update_option_group(?)', [ group ])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
@@ -686,39 +686,36 @@ module.exports = {
       // Get `optionGroupId` from query result for next query.
       const [ [ { option_group_id: optionGroupId } ] ] = queryResult;
 
-      // Slap on values to the newly created option group.
-      for (const { id: existingOptionId, name: optionName } of options) {
-        // Issue query to create option values for newly created option group.
-        let [ queryError, queryResult ] = await to(
-          query('call create_or_update_option(?, ?, ?)', [ existingOptionId, optionGroupId, optionName ])
-        );
+      // Issue query to create option values for newly created option group.
+      [ queryError, queryResult ] = await to(
+        query('call create_or_update_options(?, ?)', [ optionGroupId, JSON.stringify(options.map(({ name }) => name)) ])
+      );
 
-        // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
-        // central error handler.
-        if (queryError) {
-          console.log(queryError);
-          await rollback();
-          conn.release();
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        console.log(queryError);
+        await rollback();
+        conn.release();
 
-          return next(createHttpError(new SqlError(queryError)));
-        }
+        return next(createHttpError(new SqlError(queryError)));
+      }
 
-        // Get `optionId` from query result for next query.
-        const [ [ { option_id: optionId } ] ] = queryResult;
+      // Get `optionId` from query result for next query.
+      const [ [ { option_ids: optionIds } ] ] = queryResult;
 
-        // Add newly created option value to an item group.
-        [ queryError ] = await to(
-          query('call add_or_change_item_group_option(?, ?)', [ itemGroupId, optionId ])
-        );
+      // Add newly created option value to an item group.
+      [ queryError ] = await to(
+        query('call add_or_change_item_group_options(?, ?)', [ itemGroupId, optionIds ])
+      );
 
-        // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
-        // central error handler.
-        if (queryError) {
-          await rollback();
-          conn.release();
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
 
-          return next(createHttpError(new SqlError(queryError)));
-        }
+        return next(createHttpError(new SqlError(queryError)));
       }
     }
 
