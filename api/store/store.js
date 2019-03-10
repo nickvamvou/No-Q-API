@@ -492,15 +492,17 @@ module.exports = {
    *   halt process and forward database error to central error handler.
    *
    * @param `itemGroupId` [Number] - `id` of the item group
+   * @param `storeId` [Number] - `id` of the store to get resource from. Also used for authorization at the DB level.
+   * @param `userId` [Number] - `id` of the requester. Strictly used for authorization at the DB level.
    *
    * @param `res` [Object] - Express's HTTP response object.
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getProductDetailsByItemGroup: async ({ params: { itemGroupId } }, res, next) => {
+  getProductDetailsByItemGroup: async ({ params: { itemGroupId, storeId }, userData: { id: userId } }, res, next) => {
     // Issue query to get details of a product in a store
     const [queryError, queryResult] = await to(
-      pool.promiseQuery('CALL get_product_details_by_item_group_id(?)', [ itemGroupId ])
+      pool.promiseQuery('CALL get_product_details_by_item_group_id(?, ?, ?)', [ storeId, userId, itemGroupId ])
     );
 
     // Forward fatal error to global error handler
@@ -755,9 +757,10 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getAllItemGroups: async (req, res, next) => {
+  getItemGroups: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
     // Issue query to get all item groups.
-    let [queryError, queryResult] = await to(pool.promiseQuery('call get_all_item_groups'));
+    console.log(userId);
+    let [queryError, queryResult] = await to(pool.promiseQuery('call get_item_groups_by_store_id(?, ?)', [ storeId, userId ]));
 
     // Forward query error to central error handler.
     if (queryError) {
@@ -795,9 +798,9 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getScannedUnpaidProducts: async ({ params: { storeId } }, res, next) => {
+  getScannedUnpaidProducts: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
     // Issue query to get all scanned unpaid products.
-    let [ queryError, queryResult ] = await to(pool.promiseQuery('call get_current_scanned_items(?)', [ storeId ]));
+    let [ queryError, queryResult ] = await to(pool.promiseQuery('call get_current_scanned_items(?, ?)', [ storeId, userId ]));
 
     // Forward query error to central error handler.
     if (queryError) {

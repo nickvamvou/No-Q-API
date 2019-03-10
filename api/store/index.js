@@ -85,9 +85,8 @@ router.post(
 router.get(
   "/:storeId/itemGroups",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.getAllItemGroups
+  storeController.getItemGroups
 );
-
 
 // Update an item group
 router.patch(
