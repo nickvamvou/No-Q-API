@@ -39,6 +39,51 @@ module.exports = {
     }
   },
 
+  /**
+   * `{url}/shopping_cart/userId/remove`
+   *
+   * The particular method adds a particular product (based on RFID received) to the Cart of the user and if the user
+   * does not have a Cart it creates a new one.
+   *
+   * @method product_id
+   * @param cart_id
+   * @return Whether the product was deleted
+   * @throws Error500
+   */
+
+  removeProductFromCartByBarcode: async (req, res, next) => {
+    authorized = true;
+    if (authorized) {
+      var deleted = await module.exports.deleteProductFromCartDB(
+        req.body.product_id,
+        req.body.cart_id
+      );
+      if (deleted instanceof Error || deleted.affectedRows === 0) {
+        return res.status(500).json({
+          message:
+            "Product not deleted because it could not be found or because of DB error"
+        });
+      }
+      return res.status(200).json({
+        message: "Product has been deleted from cart"
+      });
+    }
+  },
+
+  deleteProductFromCartDB: async (product_id, cart_id) => {
+    const deleteProductFromUserCartDB =
+      "CALL delete_product_from_user_cart(?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(deleteProductFromUserCartDB, [product_id, cart_id])
+    );
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+    return queryResult;
+  },
+
   // /**
   //  * `{url}/shopping_cart/userId/RFID/create`
   //  *

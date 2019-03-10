@@ -18,7 +18,7 @@ router.post(
 router.delete(
   "/:userId/remove",
   // checkAuth.userAuth([role.SHOPPER]),
-  orderController.removeProductFromCart
+  orderController.removeProductFromCartByBarcode
 );
 
 router.post(
