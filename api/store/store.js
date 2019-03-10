@@ -394,8 +394,7 @@ module.exports = {
     const [ [ { product_details_id: productDetailsId } ] ] = queryResult;
 
     // Issue query to DB to bulk insert option value references.
-    // TODO: If there's a way to abstract this query to an SP, that'd be great! Right now, there's no way to pass a
-    // TODO: list to an SP :(
+    // TODO: Move this into an SP. Create an SP that'll receive productDetailsId and a list of options or option ids -- as JSON.
     [ queryError ] = await to(
       pool.promiseQuery(
         'insert into masterdb.product_options (product_detail_id, option_id) values ?',
@@ -694,7 +693,6 @@ module.exports = {
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
       // central error handler.
       if (queryError) {
-        console.log(queryError);
         await rollback();
         conn.release();
 
