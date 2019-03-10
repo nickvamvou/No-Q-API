@@ -3,13 +3,12 @@
  */
 const createHttpError = require("http-errors");
 const jwt = require("jsonwebtoken");
-const to = require('await-to-js').default;
-const util = require('util');
+const to = require("await-to-js").default;
+const util = require("util");
 
-const cacheRegister = require('../../config/cache_register');
+// const cacheRegister = require('../../config/cache_register');
 const key = require("../../config/jwt_s_key");
-const mailer = require('../../config/mailer');
-
+const mailer = require("../../config/mailer");
 
 /**
  * This method handles general functionality for initiating
@@ -19,9 +18,15 @@ const mailer = require('../../config/mailer');
  * @param res - express response object
  * @param next - function that forwards processes to the next express handler or middleware
  */
-const initiateResetPassword = async ({ body: { email }, referenceName }, res, next) => {
+const initiateResetPassword = async (
+  { body: { email }, referenceName },
+  res,
+  next
+) => {
   const [jwtError, token] = await to(
-    util.promisify(jwt.sign)({ email, referenceName }, key.jwt_key, { expiresIn: '1h' })
+    util.promisify(jwt.sign)({ email, referenceName }, key.jwt_key, {
+      expiresIn: "1h"
+    })
   );
 
   // Forward fatal error to global error handler
@@ -30,17 +35,17 @@ const initiateResetPassword = async ({ body: { email }, referenceName }, res, ne
   }
 
   // Save generated token for resetting password to cache register, to expire in an hour
-  cacheRegister.set(`forgot-pass-token-${email}`, token, 'EX', 60 * 60);
+  cacheRegister.set(`forgot-pass-token-${email}`, token, "EX", 60 * 60);
 
   // Configure mailer options
   const mailOptions = {
     to: email,
-    from: 'no-q@info.io',
-    template: 'forgot-password',
-    subject: 'Password help has arrived!',
+    from: "no-q@info.io",
+    template: "forgot-password",
+    subject: "Password help has arrived!",
     context: {
       url: `http://localhost:3000/user/reset-password?token=${token}`,
-      name: referenceName,
+      name: referenceName
     }
   };
 
@@ -54,11 +59,10 @@ const initiateResetPassword = async ({ body: { email }, referenceName }, res, ne
 
   // Dish out success message
   return res.status(200).json({
-    message: 'A link to reset your password has been sent to your email',
+    message: "A link to reset your password has been sent to your email"
   });
 };
 
-
 module.exports = {
-  initiateResetPassword,
+  initiateResetPassword
 };

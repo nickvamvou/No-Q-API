@@ -81,12 +81,12 @@ router.patch(
   storeController.updateProduct
 );
 
-// Create new product details for a product
-router.post(
-  "/:storeId/productDetails",
-  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.addNewProductDetails
-);
+// // Create new product details for a product
+// router.post(
+//   "/:storeId/productDetails",
+//   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+//   storeController.addNewProductDetails
+// );
 
 // Get all product details in a store
 router.get(
@@ -137,6 +137,5 @@ router.delete(
   // checkAuth.userAuth([role.RETAILER, role.ADMIN]),
   storeController.deleteVoucherFromShop
 );
-
 
 module.exports = router;

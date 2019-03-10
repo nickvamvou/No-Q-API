@@ -1,13 +1,13 @@
-const to = require('await-to-js').default;
+const to = require("await-to-js").default;
 const createHttpError = require("http-errors");
 const fs = require("fs");
+const util = require("util");
 
 const pool = require("../../config/db_connection");
 const role = require("../user/user-role");
-const utils = require('../utils');
+const utils = require("../utils");
 
 const { SqlError } = utils;
-
 
 /**
  * This class contains code describing the shop functionality.
@@ -339,23 +339,54 @@ module.exports = {
   },
 
   /**
-   * Creates new details of a product and return the id of the newly added record.
+   * Endpoint: `POST store/:storeId/productDetails`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
    *
-   * @param req - express request object containing information about the request -- request payload, route params, etc
-   * @param res - express response object
-   * @param next - function that forwards processes to the next express handler or middleware
+   *
+   * This endpoint handler creates new details for a product
+   * and returns the id of the newly added record when successful.
+   *
+   * Alternative flows;
+   *
+   * - If error occurs while executing query within the context of the DB transaction,
+   *   rollback DB surface changes made so far, release connection, and forward error to central error handler.
+   *
+   *
+   * @param `body` [Object] - Payload object
+   *
+   * @param `body.name` [String] - Name of the product.
+   * @param `body.barcode` [String] - String containing characters that represent a barcode.
+   * @param `body.SKU` [String] - Store Keeping Unit code.
+   * @param `body.quantity` [Number] - No of item of this product..
+   * @param `body.price` [Decimal] - Price of the product.
+   * @param `body.itemGroupId` [Number] - ID of the item group that the specific product belongs to.
+   * @param `storeId` [Number] - ID of the store that product should to be created in.
+   * @param `userId` [Number] - Id of retailer performing action.
+   * @param `body.options` [Array] - A list of options references -- options IDs. e.g red, small, etc.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
    */
-  addNewProductDetails: async (req, res, next) => {
-    // Issue query to DB to create new details for a product
-    const [queryError, queryResult] = await to(pool.promiseQuery('CALL create_product_details(?, ?, ?, ?, ?, ?, ?)', [
-      req.body.name,
-      req.body.weight,
-      req.body.stock,
-      req.body.description,
-      req.body.retailerProductId,
-      req.params.storeId,
-      req.userData.id,
-    ]));
+  createProductDetails: async (
+    { body, params: { storeId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
+    // Issue query to DB to create new details of a product along with the item group it belongs to.
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call create_product_details(?, ?, ?, ?, ?, ?, ?, ?)", [
+        body.name,
+        body.barcode,
+        body.SKU,
+        body.quantity,
+        body.price,
+        body.itemGroupId,
+        storeId,
+        userId
+      ])
+    );
 
     // Forward fatal error to global error handler
     if (queryError) {
@@ -363,10 +394,30 @@ module.exports = {
     }
 
     // Retrieve actual result set from query result
-    const [resultSet] = queryResult;
+    const [[{ product_details_id: productDetailsId }]] = queryResult;
+
+    // Issue query to DB to bulk insert option value references.
+    // TODO: If there's a way to abstract this query to an SP, that'd be great! Right now, there's no way to pass a
+    // TODO: list to an SP :(
+    [queryError] = await to(
+      pool.promiseQuery(
+        "insert into masterdb.product_options (product_detail_id, option_id) values ?",
+        [body.options.map(optionId => [productDetailsId, optionId])]
+      )
+    );
+
+    // Forward fatal error to global error handler
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
 
     // Dish out final result :)
-    res.status(200).json(resultSet);
+    res.json({
+      message: "Product details was created",
+      data: {
+        id: productDetailsId
+      }
+    });
   },
 
   /**
@@ -378,8 +429,10 @@ module.exports = {
    */
   getAllProductDetails: async (req, res, next) => {
     // Issue query to get all product details in a store/shop
-    const [queryError, queryResult] =  await to(
-      pool.promiseQuery('CALL get_all_product_details_by_store_id(?)', [req.params.storeId])
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery("CALL get_all_product_details_by_store_id(?)", [
+        req.params.storeId
+      ])
     );
 
     // Forward fatal error to global error handler
@@ -401,13 +454,17 @@ module.exports = {
    * @param res - express response object
    * @param next - function that forwards processes to the next express handler or middleware
    */
-  getProductDetails: async ({ params: { productDetailsId, storeId }, userData }, res, next) => {
+  getProductDetails: async (
+    { params: { productDetailsId, storeId }, userData },
+    res,
+    next
+  ) => {
     // Issue query to get details of a product in a store
     const [queryError, queryResult] = await to(
-      pool.promiseQuery('CALL get_product_details_by_id(?, ?, ?)', [
+      pool.promiseQuery("CALL get_product_details_by_id(?, ?, ?)", [
         productDetailsId,
         storeId,
-        userData.id,
+        userData.id
       ])
     );
 
@@ -421,17 +478,381 @@ module.exports = {
 
     // Return 404 if the requested product details was not found
     if (!resultSet.length) {
-      return next(createHttpError(
-        404, 'Product details was not found'
-      ));
+      return next(createHttpError(404, "Product details was not found"));
     }
 
     // Dish out final result :)
-    res.status(200).json(resultSet[0])
+    res.status(200).json(resultSet[0]);
+  },
+
+  /**
+   * Endpoint: `GET store/:storeId/itemGroups/:itemGroupId/products`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler retrieves all specific details of a product
+   * for a particular item group.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting product details from the database,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `itemGroupId` [Number] - `id` of the item group
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getProductDetailsByItemGroup: async (
+    { params: { itemGroupId } },
+    res,
+    next
+  ) => {
+    // Issue query to get details of a product in a store
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery("CALL get_product_details_by_item_group_id(?)", [
+        itemGroupId
+      ])
+    );
+
+    // Forward fatal error to global error handler
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Retrieve actual result set from query result
+    const [productDetails] = queryResult;
+
+    // Dish out final result :)
+    res.json({
+      data: productDetails
+    });
+  },
+
+  /**
+   *
+   * Endpoints: [`POST store/:storeId/itemGroups`, `PATCH store/:storeId/itemGroups/:itemGroupId`]
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler creates or updates an item group -- e.g a for a shirt that comes in different colors and
+   * sizes, then adds item group to a category if a `categoryId` is provided, creates option groups and corresponding
+   * values, and finally adds each created option value to the item group. This sequence of operations is enveloped in
+   * a database transaction for better management :)
+   *
+   * If all goes well, Retailer gets id of newly created item group to be used for further actions.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting a connection from the pool, forward error to central error handler.
+   *
+   * - If error occurs while starting a transaction, forward error to central error handler.
+   *
+   * - If error occurs while executing any of the queries within the context of the DB transaction,
+   *   rollback DB surface changes made so far, release connection, and forward error to central error handler.
+   *
+   * - If error occurs while committing changes so far to database, rollback all the surface changes.
+   *
+   *
+   * @param `name` [String] - Name of the item group.
+   * @param `description` [String] = Description of the item group, providing more context.
+   * @param `code` [String] - Unique code assigned to item group.
+   * @param `categoryId` [Number] - `id` of the category the item group should belong to -- e.g Electronics.
+   * @param `optionGroups` [Array] - A list of grouped option values by name.
+   * @param `storeId` [Number] - `id` of the store where item group will be created.
+   * @param `itemGroupId` [Number] - Only required for updating an item group.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   *
+   * TODO: Abstract database transaction code into a DatabaseTransaction class that can be reused.
+   *
+   * TODO: --- Find a good alternative to nested for loops for creating option groups and associated values. ---
+   * TODO: --- Potential mild performance bottleneck here. ---
+   *
+   * TODO: DRY up the block of code handling database query errors! Code becomes bloated when using DB transactions.
+   *
+   * TODO: --- Consider splitting up this endpoint handler into maybe 2 handlers that can be used on the same route;
+   *   ---
+   * TODO: --- controller/handler chaining. Express makes this seamless and clean! It might be cleaner ---
+   * TODO: --- to have a dedicated endpoint for adding option groups and values to an item group. Something like
+   * TODO: --- `/store/:storeId/itemGroups/:itemGroupId/options` -- GET and POST. It'll be easier to auto test!
+   *
+   * TODO: Is there a better data structure to represent option groups and corresponding values?
+   *
+   */
+  createOrUpdateItemGroup: async (
+    {
+      body: { name, description, code, categoryId, optionGroups },
+      params: { storeId, itemGroupId: existingItemGroupId }
+    },
+    res,
+    next
+  ) => {
+    // Transactions need to maintain changes made across sequence of actions -- the state of every query.
+    // Thus, the need for a single connection instance.
+    // Grab a free connection instance for the connection pool.
+    const [connErr, conn] = await to(pool.getConnection());
+
+    // Forward `connErr` to central error handler
+    if (connErr) {
+      return next(createHttpError(connErr));
+    }
+
+    // Create promise-based transaction functions.
+    const beginTransaction = util.promisify(conn.beginTransaction).bind(conn);
+    const query = util.promisify(conn.query).bind(conn);
+    const rollback = util.promisify(conn.rollback).bind(conn);
+    const commit = util.promisify(conn.commit).bind(conn);
+
+    // Begin new database transaction.
+    const [beginTransErr] = await to(beginTransaction());
+
+    // Error starting database transaction. Forward error!
+    if (beginTransErr) {
+      return next(createHttpError(beginTransErr));
+    }
+
+    /* Every query from here on is executed within the database transaction. */
+
+    // Issue query to create new item group.
+    let [queryError, queryResult] = await to(
+      query("call create_or_update_item_group(?, ?, ?, ?)", [
+        existingItemGroupId,
+        name,
+        description,
+        code
+      ])
+    );
+
+    // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
+    // error handler.
+    if (queryError) {
+      await rollback();
+      conn.release();
+
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get `itemGroupId` from query result.
+    const [[{ item_group_id: itemGroupId }]] = queryResult;
+
+    // Only add new item group to store.
+    if (!existingItemGroupId) {
+      // Issue query to add item group to store.
+      [queryError] = await to(
+        query("call add_store_item_group(?, ?)", [itemGroupId, storeId])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
+      // error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+    }
+
+    // Add item group to a category if needed -- `categoryId` is provided.
+    if (categoryId) {
+      [queryError] = await to(
+        query("call add_or_change_item_group_category(?, ?)", [
+          itemGroupId,
+          categoryId
+        ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+    }
+
+    // Create option groups and values for created item group. Starts by going over `optionGroups` list/array
+    // containing mapped option values to group names.
+    for (const {
+      id: existingOptionGroupId,
+      name: optionGroupName,
+      options
+    } of optionGroups) {
+      // Issue query to create new option group.
+      [queryError, queryResult] = await to(
+        query("call create_or_update_option_group(?, ?)", [
+          existingOptionGroupId,
+          optionGroupName
+        ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+
+      // Get `optionGroupId` from query result for next query.
+      const [[{ option_group_id: optionGroupId }]] = queryResult;
+
+      // Slap on values to the newly created option group.
+      for (const { id: existingOptionId, name: optionName } of options) {
+        // Issue query to create option values for newly created option group.
+        let [queryError, queryResult] = await to(
+          query("call create_or_update_option(?, ?, ?)", [
+            existingOptionId,
+            optionGroupId,
+            optionName
+          ])
+        );
+
+        // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+        // central error handler.
+        if (queryError) {
+          console.log(queryError);
+          await rollback();
+          conn.release();
+
+          return next(createHttpError(new SqlError(queryError)));
+        }
+
+        // Get `optionId` from query result for next query.
+        const [[{ option_id: optionId }]] = queryResult;
+
+        // Add newly created option value to an item group.
+        [queryError] = await to(
+          query("call add_or_change_item_group_option(?, ?)", [
+            itemGroupId,
+            optionId
+          ])
+        );
+
+        // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+        // central error handler.
+        if (queryError) {
+          await rollback();
+          conn.release();
+
+          return next(createHttpError(new SqlError(queryError)));
+        }
+      }
+    }
+
+    // Make database changes so far persistent. Commit it!
+    const [commitErr] = await to(commit());
+
+    // If error occurs while persisting changes, rollback!
+    if (commitErr) {
+      await rollback();
+    }
+
+    // Finally, DB connection has served its purpose. Release it back into the pool.
+    conn.release();
+
+    // Respond with newly created `itemGroupId` and some message.
+    res.json({
+      message: `Item group was successfully ${
+        !existingItemGroupId ? "created" : "updated"
+      }`,
+      data: {
+        id: itemGroupId
+      }
+    });
+  },
+
+  /**
+   * Endpoint: `GET store/:storeId/itemGroups`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler gets all item groups for a particular store along with the number of
+   * associated `product details` for each item group.
+   *
+   * If all goes well, Retailer gets a list/array of all item groups with each item containing the;
+   * group `name`, `item_code`, and `product_details_count`.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting item groups from DB, forward error to central error handler.
+   *
+   *
+   * @param `req` [Object] - Express's HTTP request object.
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getAllItemGroups: async (req, res, next) => {
+    // Issue query to get all item groups.
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_all_item_groups")
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get items groups from query result.
+    const [itemGroups] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json({
+      data: itemGroups
+    });
+  },
+
+  /**
+   *
+   * Endpoint: `GET store/:storeId/scannedUnpaidProducts`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler gets all scanned products that hasn't been paid for
+   * in a store, along with user info, item group info and other related info.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting scanned unpaid item from DB,
+   *   halt process and forward error to central error handler.
+   *
+   *
+   * @param `storeId` [Object] - Resource identity number of the store to get scanned unpaid items from.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getScannedUnpaidProducts: async ({ params: { storeId } }, res, next) => {
+    // Issue query to get all scanned unpaid products.
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_current_scanned_items(?)", [storeId])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get returned products from query result.
+    const [data] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json({ data });
   },
 
   /**
    * Adds the products option groups and values given by the user.
+   *
    * @param {[type]}   req  [description]
    * @param {[type]}   res  [description]
    * @param {Function} next [description]
@@ -608,8 +1029,10 @@ module.exports = {
    *
    * @method addVoucherToShop
    * @param isPercentage (boolean to indicate if the voucher is a fixed price or percentage)
-   * @param percentage (percentage of discount)
-   * @param fixed (fixed value of money - if is percentage is False)
+   * @param value (percentage of discount)
+   * @param creation_date (date the coupon starts)
+   * @param end_date (date the coupon expires)
+   * @param code (code provided by the retailer)
    * @return Whether the voucher was added to DB and the details of the voucher
    * @throws Error (500) System Failure.
              Error (500) Voucher could not be added.
@@ -633,7 +1056,7 @@ module.exports = {
       let voucherCode = module.exports.generateVoucherCode();
       var result = await module.exports
         .addVoucherToShopDB(
-          req.body.percentage,
+          req.body.value,
           req.body.isPercentage,
           req.params.storeId,
           voucherCode
@@ -874,7 +1297,7 @@ module.exports = {
           } else {
             //if redeemable is already false dont set it again to FALSE
             //its is not redeemable
-            if (result[0][0].reedemable.includes(00)) {
+            if (result[0][0].reedemable.includes(0o00)) {
               reject(2);
             }
             resolve(result[0][0].coupon_id);

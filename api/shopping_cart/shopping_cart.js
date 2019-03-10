@@ -106,6 +106,10 @@ module.exports = {
           req.body.cart_id
         );
 
+        console.log(
+          "This is the active cart of store : " + storeIdOfActiveCart
+        );
+
         if (storeIdOfActiveCart instanceof Error) {
           return res.status(500).json({
             message: storeIdOfActiveCart
@@ -124,11 +128,7 @@ module.exports = {
           //TODO THE PROBLEM IS HERE WITH RECEIVING THE STORE ID WHICH NEEDS CHANGING - storeIdOfActiveCart IS WRONG
           //the user has an active cart but his cart belongs to a different shop
           if (storeIdOfActiveCart !== req.body.store_id) {
-            console.log("GOES HERE TO DELETE");
-
-            console.log("STORE ID TO DELETE : " + req.body.store_id);
-            console.log("USER ID TO DELETE : " + req.params.userId);
-
+            console.log("Should delete");
             //get the cart id delete cart id from the cart and the active cart table
             var cartDeletion = await module.exports.deleteCartFromCartAndFromActive(
               storeIdOfActiveCart,
@@ -155,25 +155,32 @@ module.exports = {
             });
           }
 
-          //add product to the new cart and return cart
           cart_id = cartIdCreated;
-          console.log("CREATED A CARD WITH ID : " + cart_id);
         }
 
-        console.log("REACHED HERE");
-
-        //the user has an active cart to the particular shop, add the product to the cart
+        //the user has an active cart to the particular shop (or one is created), add the product to the cart
         var cartItems = await module.exports.addProductToUsersCartBasedOnBarcode(
           req.body.barcode,
-          cart_id
+          cart_id,
+          req.body.store_id
         );
+
         if (cartItems instanceof Error) {
+          console.log(cartItems);
+          //TODO ROLLBACK IF THIS GIVES AN ERROR
           return res.status(500).json({
-            message: cartItems
+            error:
+              "Error adding the product because it does not exist or is not associated with this store"
           });
         }
+
+        const cart_products = module.exports.filterCartProductsWithOptions(
+          cartItems
+        );
+
         return res.status(200).json({
-          message: "Product added to cart"
+          message: "Product added to cart",
+          cart_products: cart_products
         });
       }
 
@@ -360,6 +367,7 @@ module.exports = {
     Filter cart with product options. Gets a cart with product and filters it based on the options
   */
   filterCartProductsWithOptions: cart_with_products => {
+    console.log("hello : " + cart_with_products);
     var filtered_cart = [];
     var product_ids_visited = [];
 
@@ -383,8 +391,13 @@ module.exports = {
       }
     }
 
+    //TODO (DO NOT REMOVE THE FIRS ENTRY LIKE THAT)
+
     filtered_cart.push(current_product);
-    console.log(filtered_cart);
+
+    filtered_cart = filtered_cart.slice(1);
+
+    return filtered_cart;
 
     // //get all the product details, option values and option groups for 1 product
     // for (i = 0; i < cart_with_products.length; i++) {
@@ -477,19 +490,29 @@ module.exports = {
     return resultSet;
   },
 
-  addProductToUsersCartBasedOnBarcode: async (barcode, cartId) => {
+  addProductToUsersCartBasedOnBarcode: async (barcode, cartId, storeId) => {
     const addProductToCartBasedOnBarcode =
-      "CALL add_product_based_barcode_to_user_cart(?, ?)";
+      "CALL add_product_based_barcode_to_user_cart(?, ?, ?)";
 
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(addProductToCartBasedOnBarcode, [barcode, cartId])
+      pool.promiseQuery(addProductToCartBasedOnBarcode, [
+        barcode,
+        cartId,
+        storeId
+      ])
     );
     //get any possible error
     if (queryError) {
       console.log("GOES IN THE SECOND ERROR");
       return queryError;
     } else {
-      return;
+      const [resultSet] = queryResult;
+      if (resultSet.length === 0) {
+        console.log("IM INNN");
+        return new Error(500);
+      } else {
+        return resultSet;
+      }
     }
   },
 
