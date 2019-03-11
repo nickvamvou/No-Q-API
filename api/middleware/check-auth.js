@@ -3,7 +3,6 @@ const key = require("../../config/jwt_s_key.js");
 const role = require("../user/user-role");
 //This file checks for authentication, by examining the data in the JWT
 
-
 module.exports = {
   userAuth: roles => {
     return (req, res, next) => {

@@ -1032,7 +1032,7 @@ module.exports = {
    * @param value (percentage of discount)
    * @param creation_date (date the coupon starts)
    * @param end_date (date the coupon expires)
-   * @param code (code provided by the retailer)
+   * @param voucher_code (code provided by the retailer)
    * @return Whether the voucher was added to DB and the details of the voucher
    * @throws Error (500) System Failure.
              Error (500) Voucher could not be added.
@@ -1051,27 +1051,32 @@ module.exports = {
 
     var authorized = true;
 
+    console.log(req.params.storeId);
     if (authorized) {
-      //create the voucher code
-      let voucherCode = module.exports.generateVoucherCode();
+      let voucherCode;
+
       var result = await module.exports
         .addVoucherToShopDB(
           req.body.value,
           req.body.isPercentage,
+          req.body.start_date,
+          req.body.end_date,
+          req.body.voucher_code,
+          req.body.max_number_allowed,
           req.params.storeId,
-          voucherCode
+          req.userData.id
         )
         .then(voucher_details => {
-          return res.status(200).json({
-            message: "Voucher Added",
-            voucher: voucher_details
-          });
-        })
-        .catch(err => {
-          console.log(err);
-          return res.status(500).json({
-            message: "Error with DB connection when trying to add voucher"
-          });
+          if (voucher_details instanceof Error) {
+            return res.status(500).json({
+              message: "Error with DB connection when trying to add voucher"
+            });
+          } else {
+            return res.status(200).json({
+              message: "Voucher Added",
+              voucher: voucher_details
+            });
+          }
         });
     } else {
       return res.status(401).json({
@@ -1250,39 +1255,93 @@ module.exports = {
     return r;
   },
 
-  addVoucherToShopDB: async (value, isPercentage, shopId, couponCode) => {
-    //if its percentage add based on percentage
+  addVoucherToShopDB: async (
+    value,
+    isPercentage,
+    startDate,
+    endDate,
+    couponCode,
+    max_number_allowed,
+    storeId,
+    retailer_id
+  ) => {
+    console.log("Times visited");
+    let voucherCode;
+    //if retailer did not provide a voucher code generate a unique code
+    if (couponCode.length === 0) {
+      voucherCode = module.exports.generateVoucherCode();
+    } else {
+      voucherCode = couponCode;
+    }
 
-    var addPercentageVoucher = "CALL add_voucher_to_shop(?, ?, ?, ?)";
-    return (voucher_details = await new Promise((res, rej) => {
-      pool.query(
-        addPercentageVoucher,
-        [shopId, value, couponCode, isPercentage],
-        (err, result) => {
-          console.log("checker");
-          if (err) {
-            //if there is already a voucher with the same code repeat the addition with different code
-            if (err.errno == 1062) {
-              couponCode = module.exports.generateVoucherCode;
-              //recursion
-              addVoucherToShopDB(
-                percentage,
-                fixed,
-                isPercentage,
-                shopId,
-                couponCode
-              );
-            } else {
-              console.log(err);
-              return rej(err);
-            }
-          } else {
-            return res(result[0][0]);
-          }
+    //create coupon
+    const addVoucherToCart = "CALL add_voucher_to_shop(?, ?, ?, ?, ?, ?, ?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(addVoucherToCart, [
+        value,
+        isPercentage,
+        startDate,
+        endDate,
+        voucherCode,
+        max_number_allowed,
+        storeId,
+        retailer_id
+      ])
+    );
+    //get any possible error
+    if (queryError) {
+      if (queryError.errno === 1062) {
+        if (couponCode.length !== 0) {
+          return queryError;
+        } else {
+          await module.exports.addVoucherToShopDB(
+            value,
+            isPercentage,
+            startDate,
+            endDate,
+            voucherCode,
+            max_number_allowed,
+            storeId,
+            retailer_id
+          );
         }
-      );
-    }));
+      }
+    }
+
+    console.log(queryResult);
+    const [resultSet] = queryResult;
+
+    console.log("CREATED COUPON WITH ID : " + resultSet[0].coupon_id);
+
+    var result = await module.exports.createStoreCouponConnection(
+      resultSet[0].coupon_id,
+      storeId
+    );
+
+    if (result instanceof Error) {
+      //TODO MUST BE ABLE TO ROLLBACK
+      return result;
+    }
+    return resultSet;
   },
+
+  createStoreCouponConnection: async (coupon_id, store_id) => {
+    const addVoucherStore = "CALL add_voucher_to_shop_coupon_connection(?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(addVoucherStore, [store_id, coupon_id])
+    );
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    //this means that the user has an active cart that belongs to the shop and the
+    // result set holds the products of the cart with the cart id
+    return;
+  },
+
   //checks both the existence of the voucher and also whether the voucher is redeemable already or not
   checkVoucherExistenceAndRedeemability: async (voucherId, storeId) => {
     var checkVoucherId = "CALL get_voucher_in_store(?, ?)";

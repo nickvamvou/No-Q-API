@@ -127,7 +127,7 @@ router.post(
 //TODO uncomment line 116 (authorization)
 router.post(
   "/:storeId/vouchers/addVoucher",
-  // checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
   storeController.addVoucherToShop
 );
 
