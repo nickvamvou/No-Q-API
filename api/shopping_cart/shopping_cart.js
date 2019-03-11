@@ -148,12 +148,15 @@ module.exports = {
 
         //holds the storeId of the active cart
         var storeIdOfActiveCart = await module.exports.cartIsActive(
-          req.body.cart_id
+          req.body.cart_id,
+          req.params.userId
         );
 
         console.log(
           "This is the active cart of store : " + storeIdOfActiveCart
         );
+
+        console.log("HAHA : " + storeIdOfActiveCart);
 
         if (storeIdOfActiveCart instanceof Error) {
           return res.status(500).json({
@@ -165,18 +168,22 @@ module.exports = {
         var cart_id = req.body.cart_id;
         //takes cases where
         ////the user has an active cart but his cart belongs to a different shop
+        //the user has active cart but the cart submitted is not the same as the active cart
         //the user does not have an active cart
         if (
           storeIdOfActiveCart === DB_EMPTY_RESPONSE ||
-          storeIdOfActiveCart !== req.body.store_id
+          storeIdOfActiveCart.store_id !== req.body.store_id ||
+          storeIdOfActiveCart.cart_id !== req.body.cart_id
         ) {
           //TODO THE PROBLEM IS HERE WITH RECEIVING THE STORE ID WHICH NEEDS CHANGING - storeIdOfActiveCart IS WRONG
           //the user has an active cart but his cart belongs to a different shop
-          if (storeIdOfActiveCart !== req.body.store_id) {
-            console.log("Should delete");
-            //get the cart id delete cart id from the cart and the active cart table
+          if (
+            storeIdOfActiveCart !== req.body.store_id ||
+            storeIdOfActiveCart.cart_id !== req.body.cart_id
+          ) {
+            //Store id is correct
             var cartDeletion = await module.exports.deleteCartFromCartAndFromActive(
-              storeIdOfActiveCart,
+              storeIdOfActiveCart.store_id,
               req.params.userId
             );
 
@@ -346,12 +353,14 @@ module.exports = {
         });
       }
 
-      module.exports.filterCartProductsWithOptions(cartIdAndProducts);
+      var cart_products = module.exports.filterCartProductsWithOptions(
+        cartIdAndProducts
+      );
       //filter the result and send it to the front end
       return res.status(200).json({
         message: "Your existing cart has been retrieved",
         cart: cart_id,
-        cart: cartIdAndProducts
+        cart: cart_products
       });
     }
     //the user does not have an active cart with the shop
@@ -582,10 +591,10 @@ module.exports = {
   /*
     Receives a cart id and checks if its active. If active it returns the store id of the active cart
   */
-  cartIsActive: async cartId => {
-    const checkCartActive = "CALL cart_is_active(?)";
+  cartIsActive: async (cartId, userId) => {
+    const checkCartActive = "CALL cart_is_active(?,?)";
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(checkCartActive, [cartId])
+      pool.promiseQuery(checkCartActive, [cartId, userId])
     );
 
     //get any possible error
@@ -595,14 +604,12 @@ module.exports = {
 
     const [resultSet] = queryResult;
 
-    if (!resultSet.length) {
+    //USER DOES NOT HAVE ACTIVE CART TO ANY STORE
+    if (resultSet.length === 0) {
       return DB_EMPTY_RESPONSE;
     }
 
-    const [{ store_id }] = resultSet;
-    console.log("THERE IS A CART AND IT BELONGS TO THIS STORE : " + store_id);
-    //contains the store id
-    return store_id;
+    return resultSet[0];
   },
 
   /*
