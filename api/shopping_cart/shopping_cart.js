@@ -729,6 +729,33 @@ module.exports = {
         });
     }
   },
+  //gets a cart (cart_id) and removes the voucher in this cart
+  deleteVoucherFromCart: async (req, res, next) => {
+    var deleted = await module.exports.removeVoucherFromCart(req.body.cart_id);
+    if (deleted instanceof Error) {
+      return res.status(500).json({
+        message: "Voucher could not be deleted"
+      });
+    }
+    return res.status(200).json({
+      message: "Voucher successfuly removed from cart"
+    });
+  },
+
+  removeVoucherFromCart: async cart_id => {
+    var deleteVoucherFromActiveCart = "CALL delete_voucher_from_cart(?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(deleteVoucherFromActiveCart, [cart_id])
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    return queryResult;
+  },
 
   //by code
   //get the customers cart id (if its not active do not add it)
@@ -751,22 +778,27 @@ module.exports = {
         });
       }
     }
+
     //add it to the cart which is passed, if the cart is not in an active state return error
     var added = await module.exports.addVoucherToCartDB(
-      voucher.coupon_id,
-      voucher.store_id,
+      voucher[0].coupon_id,
+      voucher[0].store_id,
       req.body.cart_id,
       req.userData.id
     );
 
     if (added instanceof Error) {
+      console.log(added);
       return res.status(500).json({
-        message: "Could not add the voucher to the cart"
+        message:
+          "Could not add the voucher to the cart, probably because cart is not active"
       });
     }
 
+    console.log(voucher.coupon_id);
     res.status(200).json({
-      message: "Voucher added"
+      message: "Voucher added",
+      voucherId: voucher[0].coupon_id
     });
   },
 
@@ -791,7 +823,7 @@ module.exports = {
 
     console.log(resultSet);
 
-    if (!resultSet.active_cart_variable) {
+    if (!resultSet[0].active_cart_variable) {
       console.log("HAHAHA");
       return new Error("Cart is not active");
     }

@@ -35,6 +35,13 @@ router.post(
   orderController.addVoucherToCart
 );
 
+//TODO checking of whether the user owns the cart
+router.delete(
+  "/:userId/deleteVoucher",
+  checkAuth.userAuth([role.SHOPPER]),
+  orderController.deleteVoucherFromCart
+);
+
 //Needs modification
 //this endpoint is called from doors and must be kept private
 //userId is the door id
