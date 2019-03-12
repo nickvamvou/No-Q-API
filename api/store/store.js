@@ -1310,17 +1310,24 @@ module.exports = {
       voucherCode = couponCode;
     }
 
+    console.log(endDate);
     //create coupon
     const addVoucherToCart =
       "CALL add_voucher_to_shop(?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     const [queryError, queryResult] = await to(
       pool.promiseQuery(addVoucherToCart, [
-        moment(new Date()).format("YYYY/MM/DD"),
+        moment(new Date())
+          .format("YYYY-MM-DD")
+          .toString(),
         value,
         isPercentage,
-        startDate,
-        endDate,
+        moment(new Date(startDate))
+          .format("YYYY-MM-DD")
+          .toString(),
+        moment(new Date(endDate))
+          .format("YYYY-MM-DD")
+          .toString(),
         voucherCode,
         max_number_allowed,
         storeId,
