@@ -6,7 +6,7 @@ const util = require("util");
 const pool = require("../../config/db_connection");
 const role = require("../user/user-role");
 const utils = require("../utils");
-
+var moment = require("moment");
 const { SqlError } = utils;
 
 /**
@@ -1085,6 +1085,41 @@ module.exports = {
     }
   },
 
+  //gets the vouchers of a particular shop based on the shop id
+  getVouchersFromShop: async (req, res, next) => {
+    var vouchers = await module.exports.getVouchersFromShopDB(
+      req.params.storeId,
+      req.userData.id
+    );
+    if (vouchers instanceof Error) {
+      return res.status(500).json({
+        message: "Vouchers could not be retrieved for the particular shop"
+      });
+    }
+    return res.status(200).json({
+      message: "Vouchers retrieved",
+      vouchers: vouchers
+    });
+  },
+
+  //based on store id, the particular function retrieves all vouchers - voucher information found in this store.
+  getVouchersFromShopDB: async (store_id, retailer_id) => {
+    const getCouponsFromDBProcedure = "CALL get_coupons_by_store_id(?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(getCouponsFromDBProcedure, [store_id, retailer_id])
+    );
+    //get any possible error
+    if (queryError) {
+      console.log(queryError);
+      return queryError;
+    }
+
+    const [resultSet] = queryResult;
+    console.log("This is the result");
+    return resultSet;
+  },
+
   /**
    *
    *
@@ -1115,7 +1150,8 @@ module.exports = {
       await module.exports
         .checkVoucherExistenceAndRedeemability(
           req.params.voucherId,
-          req.params.storeId
+          req.params.storeId,
+          req.userData.id
         )
         .then(async voucher_id => {
           //if its reaches in this point of the execution then we can delete the voucher from the store
@@ -1275,10 +1311,12 @@ module.exports = {
     }
 
     //create coupon
-    const addVoucherToCart = "CALL add_voucher_to_shop(?, ?, ?, ?, ?, ?, ?, ?)";
+    const addVoucherToCart =
+      "CALL add_voucher_to_shop(?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
     const [queryError, queryResult] = await to(
       pool.promiseQuery(addVoucherToCart, [
+        moment(new Date()).format("YYYY/MM/DD"),
         value,
         isPercentage,
         startDate,
@@ -1293,6 +1331,7 @@ module.exports = {
     if (queryError) {
       if (queryError.errno === 1062) {
         if (couponCode.length !== 0) {
+          console.log(queryError);
           return queryError;
         } else {
           await module.exports.addVoucherToShopDB(
@@ -1320,6 +1359,7 @@ module.exports = {
     );
 
     if (result instanceof Error) {
+      console.log(result);
       //TODO MUST BE ABLE TO ROLLBACK
       return result;
     }
@@ -1343,26 +1383,35 @@ module.exports = {
   },
 
   //checks both the existence of the voucher and also whether the voucher is redeemable already or not
-  checkVoucherExistenceAndRedeemability: async (voucherId, storeId) => {
-    var checkVoucherId = "CALL get_voucher_in_store(?, ?)";
+  checkVoucherExistenceAndRedeemability: async (
+    voucherId,
+    storeId,
+    retailer_id
+  ) => {
+    var checkVoucherId = "CALL get_voucher_in_store(?, ?, ?)";
     return (voucherId = await new Promise((resolve, reject) => {
-      pool.query(checkVoucherId, [storeId, voucherId], (err, result) => {
-        if (err) {
-          reject(0);
-        } else {
-          //no voucher with the id submitted from the user was found
-          if (result[0].length === 0) {
-            reject(1);
+      pool.query(
+        checkVoucherId,
+        [storeId, voucherId, retailer_id],
+        (err, result) => {
+          if (err) {
+            console.log(err);
+            reject(0);
           } else {
-            //if redeemable is already false dont set it again to FALSE
-            //its is not redeemable
-            if (result[0][0].reedemable.includes(0o00)) {
-              reject(2);
+            //no voucher with the id submitted from the user was found
+            if (result[0].length === 0) {
+              reject(1);
+            } else {
+              //if redeemable is already false dont set it again to FALSE
+              //its is not redeemable
+              if (result[0][0].reedemable.includes(0o00)) {
+                reject(2);
+              }
+              resolve(result[0][0].coupon_id);
             }
-            resolve(result[0][0].coupon_id);
           }
         }
-      });
+      );
     }));
   },
 

@@ -29,7 +29,11 @@ router.post(
 
 //add product to user shopping cart
 
-router.post("/:userId/addVoucher", orderController.addVoucherToCart);
+router.post(
+  "/:userId/addVoucher",
+  checkAuth.userAuth([role.SHOPPER]),
+  orderController.addVoucherToCart
+);
 
 //Needs modification
 //this endpoint is called from doors and must be kept private

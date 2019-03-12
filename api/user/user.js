@@ -746,7 +746,15 @@ module.exports = {
             voucher_details.max_number_allowed
           );
 
-          if (checkBasedOnPeople) {
+          //stores whether the coupon is outdated or not
+          var couponIsOutdated = module.exports.checkIfVoucherIsOutdated(
+            voucher_details.valid_until
+          );
+
+          //TODO must create a funciton to make this coupon unredeemable if its outdated
+
+          //check if the coupon is outdated and if it has been used by the max people
+          if (checkBasedOnPeople && !couponIsOutdated) {
             //add it to the specific user
             await module.exports
               .addVoucherToUser(req.params.userId, voucher_details.coupon_id)
@@ -779,7 +787,7 @@ module.exports = {
           else {
             return res.status(404).json({
               message:
-                "Voucher cannot be added, as it has been used from too many users"
+                "Voucher cannot be added, as it has been used from too many users or is outdated"
             });
           }
         })
@@ -920,6 +928,26 @@ module.exports = {
         }
       });
     }));
+  },
+
+  //checks whether the coupon is outdated based on coupons end date and current date
+  checkIfVoucherIsOutdated: voucherEndDate => {
+    //current date
+    let currentDate = new Date(year, month, date);
+    var voucherEndDateParts = voucherEndDate.split("-");
+    let voucherFinishDate = new Date(
+      voucherEndDateParts[0],
+      voucherEndDateParts[1] - 1,
+      voucherEndDateParts[2]
+    );
+    console.log("Current date " + currentDate);
+    if (currentDate >= voucherEndDate) {
+      console.log("OUTDATED");
+      return true;
+    } else {
+      console.log("NOT OUTDATED");
+      return false;
+    }
   },
 
   getVouchersFromUser: async userId => {

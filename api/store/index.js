@@ -124,6 +124,12 @@ router.post(
   storeController.doorLogin
 );
 
+router.get(
+  "/:storeId/vouchers",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.getVouchersFromShop
+);
+
 //TODO uncomment line 116 (authorization)
 router.post(
   "/:storeId/vouchers/addVoucher",
@@ -134,7 +140,7 @@ router.post(
 //TODO uncomment line 116 (authorization)
 router.delete(
   "/:storeId/vouchers/:voucherId/delete",
-  // checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
   storeController.deleteVoucherFromShop
 );
 

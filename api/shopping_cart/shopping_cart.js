@@ -5,7 +5,7 @@
 
 const pool = require("../../config/db_connection");
 const to = require("await-to-js").default;
-
+var moment = require("moment");
 //error
 const DB_ERROR = -1;
 const DB_EMPTY_RESPONSE = -2;
@@ -730,66 +730,131 @@ module.exports = {
     }
   },
 
-  //or by id
+  //by code
+  //get the customers cart id (if its not active do not add it)
   addVoucherToCart: async (req, res, next) => {
-    // //check for role and matching user data in URL with matching data with the token
-    // var authorized = checkAuthorizationRole(
-    //   req.userData.id,
-    //   req.params.userId,
-    //   req.userData.role
-    // );
-
-    authorized = true;
-    if (authorized) {
-      //check if the voucher is valid and redeemable, if it is return the voucher id
-      await module.exports
-        .checkIfVoucherIsRedeemable(req.body.voucherCode)
-        .then(async voucher_id => {
-          //get the customer cart_id from user
-          var cart_id = await module.exports
-            .getCartFromCustomer(req.params.userId)
-            .then(async customer_cart => {
-              await module.exports
-                .addVoucherToCartDB(voucher_id, customer_cart.cart_id)
-                .then(() => {
-                  return res.status(200).json({
-                    message: "Coupon added successfully to cart",
-                    coupon_id: voucher_id
-                  });
-                })
-                .catch(err => {
-                  return res.status(404).json({
-                    message: "Could not add Voucher to Cart"
-                  });
-                });
-            })
-            .catch(err => {
-              return res.status(404).json({
-                message: "Customer does not have a cart"
-              });
-            });
-        })
-        .catch(err => {
-          if (err === 1) {
-            return res.status(404).json({
-              message: "Wrong voucher code"
-            });
-          } else if (err === 2) {
-            return res.status(404).json({
-              message: "Redeemable of voucher is set to null"
-            });
-          } else {
-            return res.status(404).json({
-              message: "Voucher is currently not redeemable"
-            });
-          }
+    //get the information of the voucher by the voucher code
+    var voucher = await module.exports.checkIfVoucherIsRedeemable(
+      req.body.coupon_code
+    );
+    //check if its redeemable
+    if (voucher instanceof Error) {
+      if (voucher.message === "Does not exist") {
+        return res.status(500).json({
+          message:
+            "Could not add the voucher to the cart, because it does not exist or due to DB error"
         });
-      //if redeemable and valid add it to users cart
-    } else {
-      return res.status(401).json({
-        message: "Authentication Failed"
+      } else if (voucher.message === "Is unredeemable") {
+        return res.status(500).json({
+          message:
+            "Could not add the voucher to the cart, because it is not redeemable"
+        });
+      }
+    }
+    //add it to the cart which is passed, if the cart is not in an active state return error
+    var added = await module.exports.addVoucherToCartDB(
+      voucher.coupon_id,
+      voucher.store_id,
+      req.body.cart_id,
+      req.userData.id
+    );
+
+    if (added instanceof Error) {
+      return res.status(500).json({
+        message: "Could not add the voucher to the cart"
       });
     }
+
+    res.status(200).json({
+      message: "Voucher added"
+    });
+  },
+
+  addVoucherToCartDB: async (coupon_id, store_id, cart_id, user_id) => {
+    var addVoucherToActiveCart = "CALL add_voucher_to_active_cart(?, ?, ?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(addVoucherToActiveCart, [
+        coupon_id,
+        store_id,
+        cart_id,
+        user_id
+      ])
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    const [resultSet] = queryResult;
+
+    console.log(resultSet);
+
+    if (!resultSet.active_cart_variable) {
+      console.log("HAHAHA");
+      return new Error("Cart is not active");
+    }
+
+    return resultSet;
+  },
+
+  checkIfVoucherIsRedeemable: async voucherCode => {
+    var getVoucherInformation =
+      "CALL get_voucher_information_by_voucher_code(?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(getVoucherInformation, [voucherCode])
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    const [resultSet] = queryResult;
+
+    console.log(resultSet);
+    //could not find the coupon being searched
+    if (resultSet.length === 0) {
+      return new Error("Does not exist");
+    }
+
+    //TODO might not have to do all the checks only the date and the redeemability
+    //get the values needed to check for redeemability
+    const [
+      { is_redeem_allowed, max_number_allowed, valid_until, number_of_usage }
+    ] = resultSet;
+
+    if (
+      is_redeem_allowed.includes(00) ||
+      !module.exports.canBeUsedBasedOnNumberOfPeople(
+        number_of_usage,
+        max_number_allowed
+      ) ||
+      module.exports.voucherHasExpired(valid_until)
+    ) {
+      return new Error("Is unredeemable");
+    }
+
+    return resultSet;
+
+    // const [{ id }] = resultSet;
+  },
+
+  voucherHasExpired: voucher_end_date => {
+    let current_date = moment(new Date()).format("YYYY/MM/DD");
+    let voucher_end_date_final = moment(new Date(voucher_end_date)).format(
+      "YYYY/MM/DD"
+    );
+
+    if (current_date >= voucher_end_date_final) {
+      return true;
+    } else {
+      return false;
+    }
+
+    // console.log(mydate.toDateString());
   },
 
   payForOrder: (req, res, next) => {
@@ -944,45 +1009,10 @@ module.exports = {
     }));
   },
 
-  checkIfVoucherIsRedeemable: async voucherCode => {
-    var getVoucherIdAndReedemable = "CALL get_voucher_reedemable_and_id(?)";
-    return (cart_id = await new Promise((res, rej) => {
-      pool.query(getVoucherIdAndReedemable, [voucherCode], (err, result) => {
-        if (err) {
-          return rej(err);
-        } else {
-          //wrong voucher code
-          if (result[0].length === 0) {
-            return rej(1);
-          }
-          //reedemable is null
-          if (result[0][0].reedemable === null) {
-            return rej(2);
-          }
-          //its is not redeemable
-          if (result[0][0].reedemable.includes(00)) {
-            return rej(3);
-          }
-          //its redeemable
-          else {
-            return res(result[0][0].coupon_id);
-          }
-          //return the cart id
-        }
-      });
-    }));
-  },
-
-  addVoucherToCartDB: async (voucher_id, cartId) => {
-    var addVoucherToUserCart = "CALL add_voucher_to_cart(?,?)";
-    return await new Promise((res, rej) => {
-      pool.query(addVoucherToUserCart, [voucher_id, cartId], (err, result) => {
-        if (err) {
-          return rej(err);
-        } else {
-          return res();
-        }
-      });
-    });
+  canBeUsedBasedOnNumberOfPeople: (numberUsingVoucher, maxNumberAllowed) => {
+    if (numberUsingVoucher >= maxNumberAllowed) {
+      return false;
+    }
+    return true;
   }
 };
