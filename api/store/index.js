@@ -102,6 +102,13 @@ router.patch(
   storeController.createOrUpdateItemGroup
 );
 
+// Delete an item group
+router.delete(
+  "/:storeId/itemGroups/:itemGroupId",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.softDeleteItemGroup,
+);
+
 // Get all product details associated with an item group
 router.get(
   "/:storeId/itemGroups/:itemGroupId/products",
