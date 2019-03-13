@@ -488,7 +488,7 @@ module.exports = {
   softDelProductDetails: async ({ params: { productDetailsId, storeId }, userData: { id: userId } }, res, next) => {
     // Issue query flag product details as deleted.
     let [ queryError ] = await to(
-      pool.promiseQuery('call flag_product_details_as_deleted(?, ?, ?)', [ productDetailsId, storeId, userId ])
+      pool.promiseQuery('call update_product_details_as_deleted(?, ?, ?)', [ productDetailsId, storeId, userId ])
     );
 
     // Forward query error to central error handler.
@@ -846,7 +846,7 @@ module.exports = {
   softDeleteItemGroup: async ({ params: { itemGroupId, storeId }, userData: { id: userId } }, res, next) => {
     // Issue query flag item group as deleted.
     let [ queryError ] = await to(
-      pool.promiseQuery('call flag_item_group_as_deleted(?, ?, ?)', [ itemGroupId, storeId, userId ])
+      pool.promiseQuery('call update_item_group_as_deleted(?, ?, ?)', [ itemGroupId, storeId, userId ])
     );
 
     // Forward query error to central error handler.
