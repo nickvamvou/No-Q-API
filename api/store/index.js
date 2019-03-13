@@ -151,6 +151,13 @@ router.get(
   storeController.getProductDetails
 );
 
+// Flag details of a product as deleted
+router.delete(
+  "/:storeId/productDetails/:productDetailsId",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.softDelProductDetails
+);
+
 // Create a new product entry based on the product details id
 router.post(
   "/:storeId/:productDetailsId/newProduct",

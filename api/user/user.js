@@ -926,19 +926,7 @@ module.exports = {
    * Retrieves all the details of a specific purchase
    */
   getDetailsOfPreviousPurchase: async (req, res, next) => {
-    //TODO implement authorization
 
-    var purchaseDetails = await module.exports.getPreviousPurchasesDB(
-      req.params.userId
-    );
-    if (purchaseDetails instanceof Error) {
-      return res.status(500).json({
-        message: purchases
-      });
-    }
-    return res.status(200).json({
-      purchaseDetails: purchaseDetails
-    });
   },
 
   /*

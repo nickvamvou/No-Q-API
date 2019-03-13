@@ -464,6 +464,43 @@ module.exports = {
   },
 
   /**
+   *
+   * Endpoint: `DELETE store/:storeId/productDetails/:productDetailsId`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler flags details of a product as deleted
+   * within a store.
+   *
+   * Alternative flows:
+   *
+   * - If database error occurs,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `productDetailsId` [Number] - `id` of product details record.
+   * @param `storeId` [Number] - `id` of the store to delete resource from. Also used for authorization at the DB level.
+   * @param `userId` [Number] - `id` of the requester. Strictly used for authorization at the DB level.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  softDelProductDetails: async ({ params: { productDetailsId, storeId }, userData: { id: userId } }, res, next) => {
+    // Issue query flag product details as deleted.
+    let [ queryError ] = await to(
+      pool.promiseQuery('call flag_product_details_as_deleted(?, ?, ?)', [ productDetailsId, storeId, userId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Respond with a 204 - NO CONTENT
+    res.status(204).send();
+  },
+
+  /**
    * Retrieves all product details in a particular store.
    *
    * @param req - express request object containing information about the request -- request payload, route params, etc
