@@ -180,46 +180,47 @@ module.exports = {
       });
     }
   },
-  //get all orders from store
-  getStoreOrders: (req, res, next) => {
-    //authorization if store id is managed from user id
-    var authorized = module.exports
-      .checkAuthorization(
-        req.userData.id,
-        req.userData.role,
-        req.params.storeId
-      )
-      .then(authorized => {
-        if (authorized) {
-          //get all customers from store based on their orders
-          var ordersFromStore = "CALL get_store_purchases(?)";
-          pool.query(ordersFromStore, req.params.storeId, (err, result) => {
-            console.log(result);
-            if (err) {
-              res.status(500).json({
-                message: err
-              });
-            }
-            //empty response no customers found
-            else if (result[0].length == 0) {
-              res.status(200).json({
-                message: "This store has no orders"
-              });
-            }
-            //customers retrieved
-            else {
-              res.status(200).json({
-                orderIds: result[0][0].customer_id
-              });
-            }
-          });
-        } else {
-          return res.status(401).json({
-            message: "Authentication failed, user has no access in this store"
-          });
-        }
-      });
+
+  /**
+   * Endpoint: `GET store/:storeId/itemGroups/:itemGroupId/products`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler retrieves all orders
+   * for a particular store.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting store orders from the database,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `storeId` [Number] - `id` of the store to get resource from. Also used for authorization at the DB level.
+   * @param `userId` [Number] - `id` of the requester. Strictly used for authorization at the DB level.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getStoreOrders: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
+    // Issue query to get all orders in a store.
+    let [ queryError, queryResult ] = await to(
+      pool.promiseQuery('call get_all_purchases_in_store(?, ?)', [ storeId, userId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get items groups from query result.
+    const [ orders ] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json({
+      data: orders,
+    });
   },
+
   //get all customer details from specifc store
   getStoreCustomers: (req, res, next) => {
     //checks if user is authorized to access information about the store
@@ -394,8 +395,7 @@ module.exports = {
     const [ [ { product_details_id: productDetailsId } ] ] = queryResult;
 
     // Issue query to DB to bulk insert option value references.
-    // TODO: If there's a way to abstract this query to an SP, that'd be great! Right now, there's no way to pass a
-    // TODO: list to an SP :(
+    // TODO: Move this into an SP. Create an SP that'll receive productDetailsId and a list of options or option ids -- as JSON.
     [ queryError ] = await to(
       pool.promiseQuery(
         'insert into masterdb.product_options (product_detail_id, option_id) values ?',
@@ -694,14 +694,13 @@ module.exports = {
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
       // central error handler.
       if (queryError) {
-        console.log(queryError);
         await rollback();
         conn.release();
 
         return next(createHttpError(new SqlError(queryError)));
       }
 
-      // Get `optionId` from query result for next query.
+      // Get `optionId`s of options created or updated from query result.
       const [ [ { option_ids: optionIds } ] ] = queryResult;
 
       // Add newly created option value to an item group.
@@ -763,7 +762,6 @@ module.exports = {
    */
   getItemGroups: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
     // Issue query to get all item groups.
-    console.log(userId);
     let [queryError, queryResult] = await to(pool.promiseQuery('call get_item_groups_by_store_id(?, ?)', [ storeId, userId ]));
 
     // Forward query error to central error handler.
