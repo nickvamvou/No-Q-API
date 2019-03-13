@@ -785,6 +785,43 @@ module.exports = {
   },
 
   /**
+   *
+   * Endpoint: `DELETE store/:storeId/itemGroups/:itemGroupId`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler flags an item group as deleted
+   * within a store.
+   *
+   * Alternative flows:
+   *
+   * - If database error occurs,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `itemGroupId` [Number] - `id` of the item group
+   * @param `storeId` [Number] - `id` of the store to delete resource from. Also used for authorization at the DB level.
+   * @param `userId` [Number] - `id` of the requester. Strictly used for authorization at the DB level.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  softDeleteItemGroup: async ({ params: { itemGroupId, storeId }, userData: { id: userId } }, res, next) => {
+    // Issue query flag item group as deleted.
+    let [ queryError ] = await to(
+      pool.promiseQuery('call flag_item_group_as_deleted(?, ?, ?)', [ itemGroupId, storeId, userId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Respond with a 204 - NO CONTENT
+    res.status(204).send();
+  },
+
+  /**
    * Endpoint: `GET store/:storeId/itemGroups`
    * Primary actors: [ Retailer ]
    * Secondary actors: None
