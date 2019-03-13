@@ -44,6 +44,13 @@ router.get(
   storeController.getStoreOrders
 );
 
+// Get details about an order
+router.get(
+  "/:storeId/orders/:orderId",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.getStoreOrder
+);
+
 // View all customers from specific shop.
 router.get(
   "/:storeId/customers",

@@ -182,7 +182,7 @@ module.exports = {
   },
 
   /**
-   * Endpoint: `GET store/:storeId/itemGroups/:itemGroupId/products`
+   * Endpoint: `GET store/:storeId/orders`
    * Primary actors: [ Retailer ]
    * Secondary actors: None
    *
@@ -218,6 +218,52 @@ module.exports = {
     // Respond with list of all item groups.
     res.json({
       data: orders,
+    });
+  },
+
+  /**
+   * Endpoint: `GET store/:storeId/orders/:orderId`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler retrieves details
+   * of an order.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting store orders from the database,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `storeId` [Number] - `id` of the store to get resource from. Also used for authorization at the DB level.
+   * @param `orderId` [Number] - `id` of the order.
+   * @param `userId` [Number] - `id` of the requester. Strictly used for authorization at the DB level.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getStoreOrder: async ({ params: { storeId, orderId }, userData: { id: userId } }, res, next) => {
+    // Issue query to get details of an order.
+    let [ queryError, queryResult ] = await to(
+      pool.promiseQuery('call get_details_of_previous_purchase(?, ?, ?)', [ storeId, orderId, userId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get items groups from query result.
+    const [ [ order ] ] = queryResult;
+
+    // Order not found? Send down a 404 error.
+    if (!order) {
+      return next(createHttpError(404, 'Order not found'))
+    }
+
+    // Return order
+    res.json({
+      data: order,
     });
   },
 
