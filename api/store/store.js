@@ -1055,10 +1055,18 @@ module.exports = {
     if (authorized) {
       let voucherCode;
 
+      let percentage;
+
+      if (req.body.isPercentage) {
+        percentage = 1;
+      } else {
+        percentage = 0;
+      }
+
       var result = await module.exports
         .addVoucherToShopDB(
           req.body.value,
-          req.body.isPercentage,
+          percentage,
           req.body.start_date,
           req.body.end_date,
           req.body.voucher_code,
@@ -1291,6 +1299,10 @@ module.exports = {
     return r;
   },
 
+  //This method accepts the details of a voucher to be created. If the retailer has
+  //aslready provided a voucher code it uses the particular code
+  //if the retailer did not specify a code the funciton uses recursion to Find
+  //a new code in order to input it in the DB.
   addVoucherToShopDB: async (
     value,
     isPercentage,
@@ -1301,7 +1313,6 @@ module.exports = {
     storeId,
     retailer_id
   ) => {
-    console.log("Times visited");
     let voucherCode;
     //if retailer did not provide a voucher code generate a unique code
     if (couponCode.length === 0) {
@@ -1346,7 +1357,7 @@ module.exports = {
             isPercentage,
             startDate,
             endDate,
-            voucherCode,
+            "",
             max_number_allowed,
             storeId,
             retailer_id
@@ -1355,6 +1366,9 @@ module.exports = {
       }
     }
 
+    if (queryError) {
+      return queryError;
+    }
     console.log(queryResult);
     const [resultSet] = queryResult;
 

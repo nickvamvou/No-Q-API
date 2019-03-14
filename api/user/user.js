@@ -938,7 +938,7 @@ module.exports = {
         number_of_usage,
         max_number_allowed
       ) ||
-      module.exports.voucherHasExpired(valid_until)
+      !module.exports.voucherDatesAreGood(valid_from, valid_until)
     ) {
       return new Error("Is unredeemable");
     }
@@ -948,16 +948,23 @@ module.exports = {
     // const [{ id }] = resultSet;
   },
 
-  voucherHasExpired: voucher_end_date => {
+  //Receives voucher starting, expiring date and checks whether the user can add it to the cart
+  voucherDatesAreGood: (voucher_start_date, voucher_end_date) => {
     let current_date = moment(new Date()).format("YYYY/MM/DD");
+    let voucher_start_date_final = moment(new Date(voucher_start_date)).format(
+      "YYYY/MM/DD"
+    );
     let voucher_end_date_final = moment(new Date(voucher_end_date)).format(
       "YYYY/MM/DD"
     );
 
-    if (current_date >= voucher_end_date_final) {
-      return true;
-    } else {
+    if (
+      current_date >= voucher_end_date_final &&
+      current_date < voucher_start_date_final
+    ) {
       return false;
+    } else {
+      return true;
     }
 
     // console.log(mydate.toDateString());
