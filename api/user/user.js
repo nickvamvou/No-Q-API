@@ -756,6 +756,31 @@ module.exports = {
     });
   },
 
+  addVoucherToUser: async (userId, voucherId) => {
+    var addVoucherToUserProcedure = "CALL add_voucher_to_user(?, ?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(addVoucherToUserProcedure, [
+        moment(new Date()).format("YYYY-MM-DD"),
+        userId,
+        voucherId
+      ])
+    );
+
+    //get any possible error
+    if (queryError) {
+      console.log(queryError);
+      return queryError;
+    }
+
+    if (queryResult.affectedRows === 0) {
+      console.log("error empty rows");
+      return new Error();
+    }
+
+    return queryResult;
+  },
+
   /*
   ******************************************************************************
                             Helper Functions
@@ -837,34 +862,34 @@ module.exports = {
       }
     ));
   },
-  checkIfVoucherIsRedeemable: async voucherCode => {
-    var getVoucherIdAndReedemable =
-      "CALL get_voucher_reedemable_and_id_and_people_using(?)";
-    return (cart_id = await new Promise((res, rej) => {
-      pool.query(getVoucherIdAndReedemable, [voucherCode], (err, result) => {
-        if (err) {
-          return rej(err);
-        } else {
-          console.log(result[0]);
-          //wrong voucher code
-          if (result[0].length === 0) {
-            return rej(1);
-          }
-          //reedemable is null
-          if (result[0][0].reedemable === null) {
-            return rej(2);
-          } //its is not redeemable
-          if (result[0][0].reedemable.includes(00)) {
-            return rej(3);
-          }
-          //its redeemable
-          else {
-            return res(result[0][0]);
-          }
-        }
-      });
-    }));
-  },
+  // checkIfVoucherIsRedeemable: async voucherCode => {
+  //   var getVoucherIdAndReedemable =
+  //     "CALL get_voucher_reedemable_and_id_and_people_using(?)";
+  //   return (cart_id = await new Promise((res, rej) => {
+  //     pool.query(getVoucherIdAndReedemable, [voucherCode], (err, result) => {
+  //       if (err) {
+  //         return rej(err);
+  //       } else {
+  //         console.log(result[0]);
+  //         //wrong voucher code
+  //         if (result[0].length === 0) {
+  //           return rej(1);
+  //         }
+  //         //reedemable is null
+  //         if (result[0][0].reedemable === null) {
+  //           return rej(2);
+  //         } //its is not redeemable
+  //         if (result[0][0].reedemable.includes(00)) {
+  //           return rej(3);
+  //         }
+  //         //its redeemable
+  //         else {
+  //           return res(result[0][0]);
+  //         }
+  //       }
+  //     });
+  //   }));
+  // },
 
   getVouchersFromUser: async userId => {
     var getUserVouchers = "CALL get_user_vouchers(?)";
@@ -878,31 +903,6 @@ module.exports = {
         }
       });
     });
-  },
-
-  addVoucherToUser: async (userId, voucherId) => {
-    var addVoucherToUserProcedure = "CALL add_voucher_to_user(?, ?, ?)";
-
-    const [queryError, queryResult] = await to(
-      pool.promiseQuery(addVoucherToUserProcedure, [
-        moment(new Date()).format("YYYY-MM-DD"),
-        userId,
-        voucherId
-      ])
-    );
-
-    //get any possible error
-    if (queryError) {
-      console.log(queryError);
-      return queryError;
-    }
-
-    if (queryResult.affectedRows === 0) {
-      console.log("error empty rows");
-      return new Error();
-    }
-
-    return queryResult;
   },
 
   checkIfVoucherIsRedeemable: async voucherCode => {
@@ -929,8 +929,20 @@ module.exports = {
     //TODO might not have to do all the checks only the date and the redeemability
     //get the values needed to check for redeemability
     const [
-      { is_redeem_allowed, max_number_allowed, valid_until, number_of_usage }
+      {
+        is_redeem_allowed,
+        max_number_allowed,
+        valid_from,
+        valid_until,
+        number_of_usage
+      }
     ] = resultSet;
+
+    console.log("start");
+    console.log(valid_from);
+    console.log(valid_until);
+    console.log(moment(new Date()).format("YYYY/MM/DD"));
+    console.log("stop");
 
     if (
       is_redeem_allowed.includes(00) ||
@@ -959,7 +971,7 @@ module.exports = {
     );
 
     if (
-      current_date >= voucher_end_date_final &&
+      current_date >= voucher_end_date_final ||
       current_date < voucher_start_date_final
     ) {
       return false;

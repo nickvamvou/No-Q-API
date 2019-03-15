@@ -1124,7 +1124,16 @@ module.exports = {
     }
 
     const [resultSet] = queryResult;
-    console.log("This is the result");
+    const [{ valid_from }] = resultSet;
+    const [{ coupon_id }] = resultSet;
+
+    console.log("Hello");
+    console.log(
+      moment(new Date(valid_from))
+        .format("YYYY-MM-DD")
+        .toString()
+    );
+    console.log(resultSet);
     return resultSet;
   },
 
@@ -1325,6 +1334,13 @@ module.exports = {
     //create coupon
     const addVoucherToCart =
       "CALL add_voucher_to_shop(?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+    console.log("Hey");
+    console.log(
+      moment(new Date(startDate))
+        .format("YYYY-MM-DD")
+        .toString()
+    );
 
     const [queryError, queryResult] = await to(
       pool.promiseQuery(addVoucherToCart, [
