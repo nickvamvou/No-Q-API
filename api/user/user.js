@@ -898,11 +898,31 @@ module.exports = {
         if (err) {
           return rej(err);
         } else {
-          console.log();
+          module.exports.filterUserVouchersBasedOnRedeemable(result[0]);
+          console.log(result[0]);
           return res(result[0]);
         }
       });
     });
+  },
+  //gets all the vouchers that a user has and removes all the ones that are not redeemable
+  filterUserVouchersBasedOnRedeemable: vouchersArray => {
+    for (voucher in vouchersArray) {
+      //voucher is unredeemable
+      if (
+        vouchersArray[voucher].is_redeem_allowed.includes(00) ||
+        !module.exports.canBeUsedBasedOnNumberOfPeople(
+          vouchersArray[voucher].number_of_usage,
+          vouchersArray[voucher].max_number_allowed
+        ) ||
+        !module.exports.voucherDatesAreGood(
+          vouchersArray[voucher].valid_from,
+          vouchersArray[voucher].valid_until
+        )
+      ) {
+        vouchersArray.splice(voucher, 1);
+      }
+    }
   },
 
   checkIfVoucherIsRedeemable: async voucherCode => {
@@ -937,12 +957,6 @@ module.exports = {
         number_of_usage
       }
     ] = resultSet;
-
-    console.log("start");
-    console.log(valid_from);
-    console.log(valid_until);
-    console.log(moment(new Date()).format("YYYY/MM/DD"));
-    console.log("stop");
 
     if (
       is_redeem_allowed.includes(00) ||

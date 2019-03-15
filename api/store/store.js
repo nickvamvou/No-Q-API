@@ -1133,8 +1133,75 @@ module.exports = {
         .format("YYYY-MM-DD")
         .toString()
     );
-    console.log(resultSet);
+    module.exports.filterRedeemableVouchers(resultSet);
     return resultSet;
+  },
+
+  //takes all the vouchers of a particular shop and decides which ones are redeemable and updates
+  //the redeemable value of the particular voucher
+  filterRedeemableVouchers: vouchersArray => {
+    for (voucher in vouchersArray) {
+      // var voucher = vouchersArray[voucher];
+      console.log("st");
+      console.log(vouchersArray[voucher]);
+      console.log("fin");
+      // const [
+      //   {
+      //     is_redeem_allowed,
+      //     number_of_usage,
+      //     max_number_allowed,
+      //     valid_from,
+      //     valid_until
+      //   }
+      // ] = voucher;
+      //check if its not redeemable
+      if (
+        vouchersArray[voucher].is_redeem_allowed.includes(00) ||
+        !module.exports.canBeUsedBasedOnNumberOfPeople(
+          vouchersArray[voucher].number_of_usage,
+          vouchersArray[voucher].max_number_allowed
+        ) ||
+        !module.exports.voucherDatesAreGood(
+          vouchersArray[voucher].valid_from,
+          vouchersArray[voucher].valid_until
+        )
+      ) {
+        var not_redeemable = {
+          type: "Buffer",
+          data: [0]
+        };
+        vouchersArray[voucher].is_redeem_allowed = not_redeemable;
+      }
+    }
+  },
+
+  //Receives voucher starting, expiring date and checks whether the user can add it to the cart
+  voucherDatesAreGood: (voucher_start_date, voucher_end_date) => {
+    let current_date = moment(new Date()).format("YYYY/MM/DD");
+    let voucher_start_date_final = moment(new Date(voucher_start_date)).format(
+      "YYYY/MM/DD"
+    );
+    let voucher_end_date_final = moment(new Date(voucher_end_date)).format(
+      "YYYY/MM/DD"
+    );
+
+    if (
+      current_date >= voucher_end_date_final ||
+      current_date < voucher_start_date_final
+    ) {
+      return false;
+    } else {
+      return true;
+    }
+
+    // console.log(mydate.toDateString());
+  },
+
+  canBeUsedBasedOnNumberOfPeople: (numberUsingVoucher, maxNumberAllowed) => {
+    if (numberUsingVoucher >= maxNumberAllowed) {
+      return false;
+    }
+    return true;
   },
 
   /**
