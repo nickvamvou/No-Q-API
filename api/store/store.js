@@ -657,7 +657,7 @@ module.exports = {
    *
    */
   createOrUpdateItemGroup: async (
-    { body: { name, description, code, categoryId, groupedOptions },
+    { body: { name, description, code, categoryId, options },
       params: { storeId, itemGroupId: existingItemGroupId },
       userData: { id: userId }
     }, res, next
@@ -751,7 +751,7 @@ module.exports = {
 
     // Create option groups and values for created item group. Starts by going over `optionGroups` list/array
     // containing mapped option values to group names.
-    for (const { group, options } of groupedOptions) {
+    for (const { group, values } of options) {
       // Issue query to create new option group.
       [ queryError, queryResult ] = await to(
         query('call create_or_update_option_group(?)', [ group ])
@@ -771,7 +771,7 @@ module.exports = {
 
       // Issue query to create option values for newly created option group.
       [ queryError, queryResult ] = await to(
-        query('call create_or_update_options(?, ?)', [ optionGroupId, JSON.stringify(options.map(({ name }) => name)) ])
+        query('call create_or_update_options(?, ?)', [ optionGroupId, JSON.stringify(values) ])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
