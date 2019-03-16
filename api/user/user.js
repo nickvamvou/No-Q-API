@@ -13,222 +13,218 @@ const { googleOAuth2Client } = require("../../config/google_auth");
 const role = require("./user-role");
 const jwt = require("jsonwebtoken");
 const key = require("../../config/jwt_s_key");
-const utils = require("../utils");
+const { SqlError, password, auth } = require("../utils");
 const { initiateResetPassword } = require("./helpers");
 
-const { SqlError } = utils;
 
 module.exports = {
-  /*
-  ******************************************************************************
-                            Signup Functions
-  ******************************************************************************
-  */
+  checkUserExistence: async ({ body: { email } }, res, next) => {
+    const [ error, result ] = await to(
+      pool.promiseQuery('CALL get_user_id_by_email(?)', [ email ])
+    );
 
-  // Sign up a shopper
-  signupShopper: (req, res, next) => {
-    /**
-     * Check if email exists by getting the customer id by email.
-     * If zero results returned then the email is available for registration.
-     */
-    var emailCheckSql = "CALL get_user_id_by_email(?)";
-    pool.query(emailCheckSql, req.body.email, (err, result) => {
-      if (err) {
-        res.status(500).json({
-          message: "Account cannot be created due to database"
-        });
-      }
+    if (error) {
+      return next(createHttpError(new SqlError(error)));
+    }
 
-      if (result[0].length === 0) {
-        module.exports.hashPassword(req.body.password).then(hashedPassword => {
-          var sql = "CALL create_customer(?,?)";
-          pool.query(sql, [req.body.email, hashedPassword], (err, result) => {
-            if (err) {
-              res.status(500).json({
-                message: "Account cannot be created due to database"
-              });
-            } else {
-              res.status(200).json({
-                message: "User created"
-              });
-            }
-          });
-        });
-      } else {
-        res.status(422).json({
-          message: "Account provided already exists"
-        });
-      }
-    });
+    const [ [ user ] ] = result;
+
+    if (user) {
+      return next(createHttpError(409, 'Looks like you already created an account. Please login to continue.'))
+    }
+
+    next();
   },
 
-  /**
-   * Sign-up a Retailer with a hashed password.
-   * Accepts (email, password, companyName, brandName).
-   */
-  signupRetailer: (req, res, next) => {
-    var emailCheckSql = "CALL get_user_id_by_email(?)";
-    pool.query(emailCheckSql, [req.body.email], (err, result) => {
-      if (err) {
-        res.status(500).json({
-          message: "Account cannot be created due to database"
-        });
-      } else if (result[0].length === 0) {
-        module.exports.hashPassword(req.body.password).then(hashedPassword => {
-          var sql = "CALL create_retailer(?,?,?,?)";
-          pool.query(
-            sql,
-            [
-              req.body.email,
-              hashedPassword,
-              req.body.companyName,
-              req.body.brandName
-            ],
-            (err, result) => {
-              if (err) {
-                res.status(500).json({
-                  message: "Account cannot be created due to db"
-                });
-              } else {
-                res.status(200).json({
-                  message: "User created"
-                });
-              }
-            }
-          );
-        });
-      } else {
-        res.status(422).json({
-          message: "Email provided already exists"
-        });
-      }
-    });
+  createHashedPass: async ({ body: { password: plainTextPass } }, res, next) => {
+    const [error, hash] = await to(password.hashPassword(plainTextPass));
+
+    if (error) {
+      return next(createHttpError(error));
+    }
+
+    res.locals.hashPassword = hash;
+
+    next()
   },
 
-  /*
-  ******************************************************************************
-                            Login Functions
-  ******************************************************************************
-  */
+  createShopper: async ({ body: { email} }, res, next) => {
+    const { hashPassword } = res.locals;
+
+    const [ error, result ] = await to(
+      pool.promiseQuery('CALL create_customer(?, ?)', [ email, hashPassword ])
+    );
+
+    if (error) {
+      return next(createHttpError(new SqlError(error)));
+    }
+
+    // Extract last inserted id object from query result.
+    const [[lastInsertedIdObj]] = result;
+
+    const userId = lastInsertedIdObj["@LID"];
+
+    res.locals.role = role.SHOPPER;
+    res.locals.userId = userId;
+
+    next();
+  },
+
+  createRetailer: async ({ body: { email, companyName, brandName } }, res, next) => {
+    const { hashPassword } = res.locals;
+
+    const [ error, result ] = await to(
+      pool.promiseQuery('CALL create_retailer(?, ?, ?, ?)', [ email, hashPassword, companyName, brandName ])
+    );
+
+    if (error) {
+      return next(createHttpError(new SqlError(error)));
+    }
+
+    // Extract last inserted id object from query result.
+    const [[lastInsertedIdObj]] = result;
+
+    const userId = lastInsertedIdObj["@LID"];
+
+    res.locals.role = role.RETAILER;
+    res.locals.userId = userId;
+
+    next();
+  },
 
   // Log-in a Shopper
-  loginShopper: (req, res, next) => {
+  getShopperPassIfExists: async ({ body: { email, password: providedPass } }, res, next) => {
     // Check if there is a user with these credential based on email
-    var emailCheckSql = "CALL get_customer_password_by_email(?)";
-    pool.query(emailCheckSql, [req.body.email], (err, passwordAndId) => {
-      if (err) {
-        res.status(500).json({
-          message: "Database error"
-        });
-      }
-      //if not return that there is no user with such credential
-      else if (passwordAndId[0].length === 0) {
-        res.status(422).json({
-          message: "Email or password is incorrect"
-        });
-      } else {
-        //Following check for the password with db, if both passwords are same (hash and plaintext)
-        module.exports
-          .checkProvidedAndStoredPassword(passwordAndId, req.body.password)
-          .then(acceptedPassword => {
-            if (accepted) {
-              console.log(accepted);
-              //create the JWT token by including the id of the user and its role for future authentication
-              var token = module.exports.createJwtToken(
-                passwordAndId[0][0].uid,
-                role.SHOPPER
-              );
-              //goes
-              res.status(200).json({
-                messsage: "Auth success",
-                token: token,
-                userId: passwordAndId[0][0].uid
-              });
-            } else {
-              return res.status(401).json({
-                message: "Email or password is incorrect"
-              });
-            }
-          });
-      }
-    });
+    const [ queryError, queryResult ] = await to(
+      pool.promiseQuery('CALL get_customer_password_by_email(?)', [ email ])
+    );
+
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    const [ [ { uid: userId, password: hashedPass } = {} ] ] = queryResult;
+
+    if (!userId) {
+      return next(createHttpError(404, 'Sorry but it looks like you don\'t have an account with us yet.'))
+    }
+
+    res.locals.userId = userId;
+    res.locals.hashedPass = hashedPass;
+    res.locals.providedPass = providedPass;
+    res.locals.role = role.SHOPPER;
+
+    next();
   },
 
   // Log-in a Retailer
-  loginRetailer: (req, res, next) => {
-    //check if there is a user with these credential based on email
-    var emailCheckSql = "CALL get_retailer_password_by_email(?)";
-    pool.query(emailCheckSql, [req.body.email], (err, passwordAndId) => {
-      if (err) {
-        res.status(500).json({
-          message: "DB error"
-        });
-      } else if (passwordAndId[0].length === 0) {
-        res.status(422).json({
-          message: "Email or password is incorrect"
-        });
-      } else {
-        //Following check for the password with db, if both passwords are same (hash and plaintext)
-        module.exports
-          .checkProvidedAndStoredPassword(passwordAndId, req.body.password)
-          .then(acceptedPassword => {
-            if (accepted) {
-              var token = module.exports.createJwtToken(
-                passwordAndId[0][0].uid,
-                role.RETAILER
-              );
-              //goes
-              res.status(200).json({
-                messsage: "Auth success",
-                token: token
-              });
-            } else {
-              return res.status(401).json({
-                message: "Email or password is incorrect"
-              });
-            }
-          });
-      }
-    });
+  getRetailerPassIfExists: async (req, res, next) => {
+    const { body: { email, password: providedPass } } = req;
+
+    // Check if there is a user with these credential based on email
+    const [ queryError, queryResult ] = await to(
+      pool.promiseQuery('CALL get_retailer_password_by_email(?)', [ email ])
+    );
+
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    const [ [ { uid: userId, password: hashedPass } = {} ] ] = queryResult;
+
+    if (!userId) {
+      return next(createHttpError(404, 'Sorry but it looks like you don\'t have an account with us yet.'))
+    }
+
+    res.locals.userId = userId;
+    res.locals.hashedPass = hashedPass;
+    res.locals.providedPass = providedPass;
+    res.locals.role = role.RETAILER;
+
+    next();
   },
 
   // Log-in an Admin
-  loginAdmin: (req, res, next) => {
-    //check if there is a user with these credential based on email
-    var emailCheckSql = "CALL get_admin_password_by_email(?)";
-    pool.query(emailCheckSql, [req.body.email], (err, passwordAndId) => {
-      if (err) {
-        res.status(500).json({
-          message: "DB error"
-        });
-      }
-      if (passwordAndId[0].length === 0) {
-        console.log(passwordAndId);
-        res.status(422).json({
-          message: "Email or password is incorrect 1"
-        });
-      } else {
-        //Following check for the password with db, if both passwords are same (hash and plaintext)
-        module.exports
-          .checkProvidedAndStoredPassword(passwordAndId, req.body.password)
-          .then(acceptedPassword => {
-            if (accepted) {
-              var token = module.exports.createJwtToken(
-                passwordAndId[0][0].uid,
-                role.ADMIN
-              );
-              //goes
-              res.status(200).json({
-                messsage: "Auth success",
-                token: token
-              });
-            } else {
-              return res.status(401).json({
-                message: "Email or password is incorrect 2"
-              });
-            }
-          });
-      }
+  getAdminPassIfExists: async (req, res, next) => {
+    const { body: { email, password: providedPass } } = req;
+
+    const [ queryError, queryResult ] = await to(
+      pool.promiseQuery('CALL get_admin_password_by_email(?)', [ email ])
+    );
+
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    const [ [ { uid: userId, password: hashedPass } = {} ] ] = queryResult;
+
+    if (!userId) {
+      return next(createHttpError(404, 'Sorry but it looks like you don\'t have an account with us yet.'))
+    }
+
+    res.locals.userId = userId;
+    res.locals.hashedPass = hashedPass;
+    res.locals.providedPass = providedPass;
+    res.locals.role = role.ADMIN;
+
+    next();
+  },
+
+  checkPassCorrectness: async (req, res, next) => {
+    const { providedPass, hashedPass } = res.locals;
+
+    const [ error, isCorrect ] = await to(password.checkPassCorrectness(providedPass, hashedPass));
+
+    if (error) {
+      return next(createHttpError(error));
+    }
+
+    if (!isCorrect) {
+      return next(
+        createHttpError(
+          401,
+          'There seems to be an issue with you password. Please ensure you\'re putting in the right password/'
+        )
+      );
+    }
+
+    next();
+  },
+
+  createRefreshToken: async (req, res, next) => {
+    const { userId, role } = res.locals;
+
+    const [ error, token ] = await to(auth.createRefreshToken({ userId, role }));
+
+    if (error) {
+      return next(createHttpError(error));
+    }
+
+    res.locals.refreshToken = token;
+
+    next();
+  },
+
+  createAccessToken: async (req, res, next) => {
+    const { userId, role } = res.locals;
+
+    const [ error, token ] = await to(auth.createAccessToken({ userId, role }));
+
+    if (error) {
+      return next(createHttpError(error));
+    }
+
+    res.locals.accessToken = token;
+
+    next();
+  },
+
+  sendAuthResponse: (req, res) => {
+    const { refreshToken, accessToken } = res.locals;
+
+    res.json({
+      refreshToken,
+      accessToken,
     });
   },
 
@@ -303,11 +299,8 @@ module.exports = {
     }
 
     // All checks passed. Everything seems good! Create JWT token containing either new or existing customer's `id` and `role`.
-    const [jwtError, token] = await to(
-      util.promisify(jwt.sign)(
-        { id: customerId, role: role.SHOPPER },
-        key.jwt_key,
-        { expiresIn: "1h" }
+    const [ jwtError, token ] = await to(
+      util.promisify(jwt.sign)({ id: customerId, role: role.SHOPPER }, key.jwt_key, { expiresIn: "1h" }
       )
     );
 
@@ -1042,20 +1035,6 @@ module.exports = {
     }));
   },
 
-  // Creates a JWT in order to be attached to login response
-  createJwtToken: (id, role) => {
-    return (token = jwt.sign(
-      {
-        //the userId retrieved from the database
-        id: id,
-        role: role
-      },
-      key.jwt_key,
-      {
-        expiresIn: "1h"
-      }
-    ));
-  },
   checkIfVoucherIsRedeemable: async voucherCode => {
     var getVoucherIdAndReedemable =
       "CALL get_voucher_reedemable_and_id_and_people_using(?)";

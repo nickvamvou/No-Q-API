@@ -7,6 +7,7 @@ var bodyParser = require("body-parser");
 var cors = require("cors");
 
 var indexRouter = require("./routes/index");
+var authRouter = require("./api/auth");
 var productsRouter = require("./api/product/index");
 const productDetailsRouter = require("./api/product_details/index");
 var storeRouter = require("./api/store/index");
@@ -50,6 +51,7 @@ app.use(
 *******************************************************************************
 */
 app.use("/", indexRouter);
+app.use('/auth', authRouter);
 app.use("/user", usersRouter);
 app.use("/products", productsRouter);
 app.use("/productDetails", productDetailsRouter);
