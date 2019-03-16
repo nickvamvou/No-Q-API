@@ -53,7 +53,7 @@ exports.createAccessToken = async (payload, options) => {
   return { token: jwtToken, iat: iat * 1000, exp: exp * 1000 };
 };
 
-exports.verifyAccessToken = async (token, options) => {
+exports.verifyAccessToken = async (token) => {
   const [ error, decoded ] = await to(
     jwt.verify(token, process.env.JWT_SECRET_KEY)
   );

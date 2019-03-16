@@ -7,13 +7,14 @@ const { auth } = require('../utils');
 module.exports = {
   userAuth: (roles) => {
     return async (req, res, next) => {
-      const token = req.headers.authorization.split(" ")[1];
+      const token = req.headers.authorization.split(' ')[1];
 
       // verifies that the token has been signed with the private key located in the server
       const [ error, decoded ] = await to(auth.verifyAccessToken(token));
 
-      if ((error && error.name === 'TokenExpiredError') || error) {
-        return next(createHttpError(401, error));
+      // Emphasize token expiration error
+      if (error && error.name === 'TokenExpiredError') {
+        return next(createHttpError(401, 'You access to this resource has expired. Token Expired'));
       }
 
       if (!roles.includes(decoded.role)) {
