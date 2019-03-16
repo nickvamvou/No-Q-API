@@ -12,8 +12,8 @@ module.exports = {
       // verifies that the token has been signed with the private key located in the server
       const [ error, decoded ] = await to(auth.verifyAccessToken(token));
 
-      if (error) {
-        throw error;
+      if ((error && error.name === 'TokenExpiredError') || error) {
+        return next(createHttpError(401, error));
       }
 
       if (!roles.includes(decoded.role)) {
