@@ -1104,6 +1104,7 @@ module.exports = {
         message: "Vouchers could not be retrieved for the particular shop"
       });
     }
+
     return res.status(200).json({
       message: "Vouchers retrieved",
       vouchers: vouchers
@@ -1124,6 +1125,9 @@ module.exports = {
     }
 
     const [resultSet] = queryResult;
+    if (resultSet.length === 0) {
+      return [];
+    }
     const [{ valid_from }] = resultSet;
     const [{ coupon_id }] = resultSet;
 
