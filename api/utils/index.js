@@ -1,6 +1,6 @@
-const errors = require('./errors');
-
-
 module.exports = {
-  ...errors,
+  ...require('./errors'),
+  crypto: require('./crypto'),
+  auth: require('./auth'),
+  password: require('./password'),
 };

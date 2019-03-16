@@ -7,11 +7,13 @@ var bodyParser = require("body-parser");
 var cors = require("cors");
 
 var indexRouter = require("./routes/index");
+var authRouter = require("./api/auth");
 var productsRouter = require("./api/product/index");
 const productDetailsRouter = require("./api/product_details/index");
 var storeRouter = require("./api/store/index");
 var usersRouter = require("./api/user/index");
 var cartRouter = require("./api/shopping_cart/index");
+const supportAPI = require('./api/support');
 
 var app = express();
 
@@ -49,11 +51,13 @@ app.use(
 *******************************************************************************
 */
 app.use("/", indexRouter);
+app.use('/auth', authRouter);
 app.use("/user", usersRouter);
 app.use("/products", productsRouter);
 app.use("/productDetails", productDetailsRouter);
 app.use("/shopping_cart", cartRouter);
 app.use("/store", storeRouter);
+app.use("/support", supportAPI);
 /*
 *******************************************************************************
                                 End

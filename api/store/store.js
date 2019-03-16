@@ -1,7 +1,9 @@
 const to = require("await-to-js").default;
 const createHttpError = require("http-errors");
 const fs = require("fs");
-const util = require("util");
+
+const util = require('util');
+
 
 const pool = require("../../config/db_connection");
 const role = require("../user/user-role");
@@ -179,46 +181,93 @@ module.exports = {
       });
     }
   },
-  //get all orders from store
-  getStoreOrders: (req, res, next) => {
-    //authorization if store id is managed from user id
-    var authorized = module.exports
-      .checkAuthorization(
-        req.userData.id,
-        req.userData.role,
-        req.params.storeId
-      )
-      .then(authorized => {
-        if (authorized) {
-          //get all customers from store based on their orders
-          var ordersFromStore = "CALL get_store_purchases(?)";
-          pool.query(ordersFromStore, req.params.storeId, (err, result) => {
-            console.log(result);
-            if (err) {
-              res.status(500).json({
-                message: err
-              });
-            }
-            //empty response no customers found
-            else if (result[0].length == 0) {
-              res.status(200).json({
-                message: "This store has no orders"
-              });
-            }
-            //customers retrieved
-            else {
-              res.status(200).json({
-                orderIds: result[0][0].customer_id
-              });
-            }
-          });
-        } else {
-          return res.status(401).json({
-            message: "Authentication failed, user has no access in this store"
-          });
-        }
-      });
+
+  /**
+   * Endpoint: `GET store/:storeId/orders`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler retrieves all orders
+   * for a particular store.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting store orders from the database,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `storeId` [Number] - `id` of the store to get resource from. Also used for authorization at the DB level.
+   * @param `userId` [Number] - `id` of the requester. Strictly used for authorization at the DB level.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getStoreOrders: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
+    // Issue query to get all orders in a store.
+    let [ queryError, queryResult ] = await to(
+      pool.promiseQuery('call get_all_purchases_in_store(?, ?)', [ storeId, userId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get items groups from query result.
+    const [ orders ] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json({
+      data: orders,
+    });
   },
+
+  /**
+   * Endpoint: `GET store/:storeId/orders/:orderId`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler retrieves details
+   * of an order.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting store orders from the database,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `storeId` [Number] - `id` of the store to get resource from. Also used for authorization at the DB level.
+   * @param `orderId` [Number] - `id` of the order.
+   * @param `userId` [Number] - `id` of the requester. Strictly used for authorization at the DB level.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getStoreOrder: async ({ params: { storeId, orderId }, userData: { id: userId } }, res, next) => {
+    // Issue query to get details of an order.
+    let [ queryError, queryResult ] = await to(
+      pool.promiseQuery('call get_details_of_previous_purchase(?, ?, ?)', [ storeId, orderId, userId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get items groups from query result.
+    const [ [ order ] ] = queryResult;
+
+    // Order not found? Send down a 404 error.
+    if (!order) {
+      return next(createHttpError(404, 'Order not found'))
+    }
+
+    // Return order
+    res.json({
+      data: order,
+    });
+  },
+
   //get all customer details from specifc store
   getStoreCustomers: (req, res, next) => {
     //checks if user is authorized to access information about the store
@@ -369,14 +418,11 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  createProductDetails: async (
-    { body, params: { storeId }, userData: { id: userId } },
-    res,
-    next
-  ) => {
+
+  createProductDetails: async ({ body, params: { storeId }, userData: { id: userId } }, res, next) => {
     // Issue query to DB to create new details of a product along with the item group it belongs to.
-    let [queryError, queryResult] = await to(
-      pool.promiseQuery("call create_product_details(?, ?, ?, ?, ?, ?, ?, ?)", [
+    let [ queryError, queryResult ] = await to(
+      pool.promiseQuery('call create_product_details(?, ?, ?, ?, ?, ?, ?, ?)', [
         body.name,
         body.barcode,
         body.SKU,
@@ -384,7 +430,7 @@ module.exports = {
         body.price,
         body.itemGroupId,
         storeId,
-        userId
+        userId,
       ])
     );
 
@@ -394,15 +440,14 @@ module.exports = {
     }
 
     // Retrieve actual result set from query result
-    const [[{ product_details_id: productDetailsId }]] = queryResult;
+    const [ [ { product_details_id: productDetailsId } ] ] = queryResult;
 
     // Issue query to DB to bulk insert option value references.
-    // TODO: If there's a way to abstract this query to an SP, that'd be great! Right now, there's no way to pass a
-    // TODO: list to an SP :(
-    [queryError] = await to(
+    // TODO: Move this into an SP. Create an SP that'll receive productDetailsId and a list of options or option ids -- as JSON.
+    [ queryError ] = await to(
       pool.promiseQuery(
-        "insert into masterdb.product_options (product_detail_id, option_id) values ?",
-        [body.options.map(optionId => [productDetailsId, optionId])]
+        'insert into masterdb.product_options (product_detail_id, option_id) values ?',
+        [ body.options.map((optionId) => [ productDetailsId, optionId ]) ]
       )
     );
 
@@ -413,11 +458,48 @@ module.exports = {
 
     // Dish out final result :)
     res.json({
-      message: "Product details was created",
+      message: 'Product details was created',
       data: {
-        id: productDetailsId
+        id: productDetailsId,
       }
     });
+  },
+
+  /**
+   *
+   * Endpoint: `DELETE store/:storeId/productDetails/:productDetailsId`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler flags details of a product as deleted
+   * within a store.
+   *
+   * Alternative flows:
+   *
+   * - If database error occurs,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `productDetailsId` [Number] - `id` of product details record.
+   * @param `storeId` [Number] - `id` of the store to delete resource from. Also used for authorization at the DB level.
+   * @param `userId` [Number] - `id` of the requester. Strictly used for authorization at the DB level.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  softDelProductDetails: async ({ params: { productDetailsId, storeId }, userData: { id: userId } }, res, next) => {
+    // Issue query flag product details as deleted.
+    let [ queryError ] = await to(
+      pool.promiseQuery('call update_product_details_as_deleted(?, ?, ?)', [ productDetailsId, storeId, userId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Respond with a 204 - NO CONTENT
+    res.status(204).send();
   },
 
   /**
@@ -845,6 +927,381 @@ module.exports = {
 
     // Get returned products from query result.
     const [data] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json({ data });
+  },
+
+  /**
+   * Endpoint: `GET store/:storeId/itemGroups/:itemGroupId/products`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler retrieves all specific details of a product
+   * for a particular item group.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting product details from the database,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `itemGroupId` [Number] - `id` of the item group
+   * @param `storeId` [Number] - `id` of the store to get resource from. Also used for authorization at the DB level.
+   * @param `userId` [Number] - `id` of the requester. Strictly used for authorization at the DB level.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getProductDetailsByItemGroup: async ({ params: { itemGroupId, storeId }, userData: { id: userId } }, res, next) => {
+    // Issue query to get details of a product in a store
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery('CALL get_product_details_by_item_group_id(?, ?, ?)', [ storeId, userId, itemGroupId ])
+    );
+
+    // Forward fatal error to global error handler
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Retrieve actual result set from query result
+    const [productDetails] = queryResult;
+
+    // Dish out final result :)
+    res.json({
+      data: productDetails,
+    })
+  },
+
+  /**
+   *
+   * Endpoints: [`POST store/:storeId/itemGroups`, `PATCH store/:storeId/itemGroups/:itemGroupId`]
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler creates or updates an item group -- e.g a for a shirt that comes in different colors and
+   * sizes, then adds item group to a category if a `categoryId` is provided, creates option groups and corresponding
+   * values, and finally adds each created option value to the item group. This sequence of operations is enveloped in
+   * a database transaction for better management :)
+   *
+   * If all goes well, Retailer gets id of newly created item group to be used for further actions.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting a connection from the pool, forward error to central error handler.
+   *
+   * - If error occurs while starting a transaction, forward error to central error handler.
+   *
+   * - If error occurs while executing any of the queries within the context of the DB transaction,
+   *   rollback DB surface changes made so far, release connection, and forward error to central error handler.
+   *
+   * - If error occurs while committing changes so far to database, rollback all the surface changes.
+   *
+   *
+   * @param `name` [String] - Name of the item group.
+   * @param `description` [String] = Description of the item group, providing more context.
+   * @param `code` [String] - Unique code assigned to item group.
+   * @param `categoryId` [Number] - `id` of the category the item group should belong to -- e.g Electronics.
+   * @param `optionGroups` [Array] - A list of grouped option values by name.
+   * @param `storeId` [Number] - `id` of the store where item group will be created.
+   * @param `itemGroupId` [Number] - Only required for updating an item group.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   *
+   * TODO: Abstract database transaction code into a DatabaseTransaction class that can be reused.
+   *
+   * TODO: --- Find a good alternative to nested for loops for creating option groups and associated values. ---
+   * TODO: --- Potential mild performance bottleneck here. ---
+   *
+   * TODO: DRY up the block of code handling database query errors! Code becomes bloated when using DB transactions.
+   *
+   * TODO: --- Consider splitting up this endpoint handler into maybe 2 handlers that can be used on the same route;
+   *   ---
+   * TODO: --- controller/handler chaining. Express makes this seamless and clean! It might be cleaner ---
+   * TODO: --- to have a dedicated endpoint for adding option groups and values to an item group. Something like
+   * TODO: --- `/store/:storeId/itemGroups/:itemGroupId/options` -- GET and POST. It'll be easier to auto test!
+   *
+   * TODO: Is there a better data structure to represent option groups and corresponding values?
+   *
+   */
+  createOrUpdateItemGroup: async (
+    { body: { name, description, code, categoryId, options },
+      params: { storeId, itemGroupId: existingItemGroupId },
+      userData: { id: userId }
+    }, res, next
+  ) => {
+    // Transactions need to maintain changes made across sequence of actions -- the state of every query.
+    // Thus, the need for a single connection instance.
+    // Grab a free connection instance for the connection pool.
+    const [ connErr, conn ] = await to(pool.getConnection());
+
+    // Forward `connErr` to central error handler
+    if (connErr) {
+      return next(createHttpError(connErr));
+    }
+
+    // Create promise-based transaction functions.
+    const beginTransaction = util.promisify(conn.beginTransaction).bind(conn);
+    const query = util.promisify(conn.query).bind(conn);
+    const rollback = util.promisify(conn.rollback).bind(conn);
+    const commit = util.promisify(conn.commit).bind(conn);
+
+    // Begin new database transaction.
+    const [ beginTransErr ] = await to(beginTransaction());
+
+    // Error starting database transaction. Forward error!
+    if (beginTransErr) {
+      return next(createHttpError(beginTransErr));
+    }
+
+    /* Every query from here on is executed within the database transaction. */
+
+    // Issue query to create new item group.
+    let [ queryError, queryResult ] = await to(
+      query('call create_or_update_item_group(?, ?, ?, ?, ?, ?)', [
+        existingItemGroupId,
+        name,
+        description,
+        code,
+        storeId,
+        userId,
+      ])
+    );
+
+    // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
+    // error handler.
+    if (queryError) {
+      await rollback();
+      conn.release();
+
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get `itemGroupId` from query result.
+    const [ [ { item_group_id: itemGroupId } ] ] = queryResult;
+
+    // Only add new item group to store.
+    if (!existingItemGroupId) {
+      // Issue query to add item group to store.
+      [ queryError ] = await to(
+        query('call add_store_item_group(?, ?)', [
+          itemGroupId,
+          storeId,
+        ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
+      // error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+    }
+
+    // Add item group to a category if needed -- `categoryId` is provided.
+    if (categoryId) {
+      [ queryError ] = await to(query('call add_or_change_item_group_category(?, ?)', [
+        itemGroupId,
+        categoryId,
+      ]));
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+    }
+
+    // Create option groups and values for created item group. Starts by going over `optionGroups` list/array
+    // containing mapped option values to group names.
+    for (const { group, values } of options) {
+      // Issue query to create new option group.
+      [ queryError, queryResult ] = await to(
+        query('call create_or_update_option_group(?)', [ group ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+
+      // Get `optionGroupId` from query result for next query.
+      const [ [ { option_group_id: optionGroupId } ] ] = queryResult;
+
+      // Issue query to create option values for newly created option group.
+      [ queryError, queryResult ] = await to(
+        query('call create_or_update_options(?, ?)', [ optionGroupId, JSON.stringify(values) ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+
+      // Get `optionId`s of options created or updated from query result.
+      const [ [ { option_ids: optionIds } ] ] = queryResult;
+
+      // Add newly created option value to an item group.
+      [ queryError ] = await to(
+        query('call add_or_change_item_group_options(?, ?)', [ itemGroupId, optionIds ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+    }
+
+    // Make database changes so far persistent. Commit it!
+    const [ commitErr ] = await to(commit());
+
+    // If error occurs while persisting changes, rollback!
+    if (commitErr) {
+      await rollback();
+    }
+
+    // Finally, DB connection has served its purpose. Release it back into the pool.
+    conn.release();
+
+    // Respond with newly created `itemGroupId` and some message.
+    res.json({
+      message: `Item group was successfully ${!existingItemGroupId ? 'created' : 'updated'}`,
+      data: {
+        id: itemGroupId,
+      },
+    })
+  },
+
+  /**
+   *
+   * Endpoint: `DELETE store/:storeId/itemGroups/:itemGroupId`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler flags an item group as deleted
+   * within a store.
+   *
+   * Alternative flows:
+   *
+   * - If database error occurs,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `itemGroupId` [Number] - `id` of the item group
+   * @param `storeId` [Number] - `id` of the store to delete resource from. Also used for authorization at the DB level.
+   * @param `userId` [Number] - `id` of the requester. Strictly used for authorization at the DB level.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  softDeleteItemGroup: async ({ params: { itemGroupId, storeId }, userData: { id: userId } }, res, next) => {
+    // Issue query flag item group as deleted.
+    let [ queryError ] = await to(
+      pool.promiseQuery('call update_item_group_as_deleted(?, ?, ?)', [ itemGroupId, storeId, userId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Respond with a 204 - NO CONTENT
+    res.status(204).send();
+  },
+
+  /**
+   * Endpoint: `GET store/:storeId/itemGroups`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler gets all item groups for a particular store along with the number of
+   * associated `product details` for each item group.
+   *
+   * If all goes well, Retailer gets a list/array of all item groups with each item containing the;
+   * group `name`, `item_code`, and `product_details_count`.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting item groups from DB, forward error to central error handler.
+   *
+   *
+   * @param `req` [Object] - Express's HTTP request object.
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getItemGroups: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
+    // Issue query to get all item groups.
+    let [queryError, queryResult] = await to(pool.promiseQuery('call get_item_groups_by_store_id(?, ?)', [ storeId, userId ]));
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get items groups from query result.
+    const [itemGroups] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json({
+      data: itemGroups,
+    });
+  },
+
+  /**
+   *
+   * Endpoint: `GET store/:storeId/scannedUnpaidProducts`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler gets all scanned products that hasn't been paid for
+   * in a store, along with user info, item group info and other related info.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting scanned unpaid item from DB,
+   *   halt process and forward error to central error handler.
+   *
+   *
+   * @param `storeId` [Object] - Resource identity number of the store to get scanned unpaid items from.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getScannedUnpaidProducts: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
+    // Issue query to get all scanned unpaid products.
+    let [ queryError, queryResult ] = await to(pool.promiseQuery('call get_current_scanned_items(?, ?)', [ storeId, userId ]));
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get returned products from query result.
+    const [ data ] = queryResult;
 
     // Respond with list of all item groups.
     res.json({ data });

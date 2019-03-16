@@ -1,31 +1,28 @@
-const jwt = require("jsonwebtoken");
-const key = require("../../config/jwt_s_key.js");
-const role = require("../user/user-role");
+const createHttpError = require("http-errors");
+const to = require('await-to-js').default;
+const { auth } = require('../utils');
 //This file checks for authentication, by examining the data in the JWT
 
 module.exports = {
-  userAuth: roles => {
-    return (req, res, next) => {
-      try {
-        const token = req.headers.authorization.split(" ")[1];
+  userAuth: (roles) => {
+    return async (req, res, next) => {
+      const token = req.headers.authorization.split(' ')[1];
 
-        //verifies that the token has been signed with the private key located in the server
-        const decoded = jwt.verify(token, key.jwt_key);
+      // verifies that the token has been signed with the private key located in the server
+      const [ error, decoded ] = await to(auth.verifyAccessToken(token));
 
-        //if the person has the correct role
-        if (roles.includes(decoded.role)) {
-          req.userData = decoded;
-          next();
-        } else {
-          return res.status(401).json({
-            message: "Main Authentication Failed"
-          });
-        }
-      } catch (error) {
-        return res.status(401).json({
-          message: "Main Authentication Failed"
-        });
+      // Emphasize token expiration error
+      if (error && error.name === 'TokenExpiredError') {
+        return next(createHttpError(401, 'Your access to this resource has expired. Token Expired'));
       }
+
+      if (!roles.includes(decoded.role)) {
+        return next(createHttpError(401, 'You need to be authorized to access this resource.'));
+      }
+
+      req.userData = decoded;
+
+      next();
     };
   }
 };

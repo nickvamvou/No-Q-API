@@ -3,8 +3,11 @@
  */
 
 const redis = require('redis');
-const util = require('util');
+const bluebird = require('bluebird');
 
+
+bluebird.promisifyAll(redis.RedisClient.prototype);
+bluebird.promisifyAll(redis.Multi.prototype);
 
 // Create new client
 const client = redis.createClient();
@@ -16,8 +19,6 @@ client.on('connect', () => {
 client.on('error', (err) => {
   console.log(`Something went wrong ${err}'`);
 });
-
-client.get = util.promisify(client.get);
 
 
 module.exports = client;

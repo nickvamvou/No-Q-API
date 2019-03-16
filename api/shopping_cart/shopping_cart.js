@@ -660,6 +660,50 @@ module.exports = {
   /**
    * `{url}/shopping_cart/userId/itemId/remove`
    *
+   * The particular method removes a particular product (based on productId received) from the Users cart.
+   *
+   *
+   * @method removeProductFromCart
+   * @param cart_id
+   * @param product_id
+   * @return Whether the deletion was successful or not and the new cart
+   * @throws Error (500) System Failure.
+             Error (404) item not found in Users Cart.
+            Error (404) cart not found.
+   */
+  removeProductFromCartUpdated: async (req, res, next) => {
+    //TODO check for authentication
+    //if authorized
+    var deleted = await module.exports.deleteProductFromCart(
+      req.body.cart_id,
+      req.body.product_id
+    );
+    if (deleted instanceof Error) {
+      return res.status(500).json({
+        message: deleted
+      });
+    }
+    return res.status(200).json({
+      message: "Product deleted successfully"
+    });
+  },
+
+  deleteProductFromCart: async (cart_id, product_id) => {
+    const deleteProductFromCartDB = "CALL delete_product_from_user_cart(?,?)";
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(deleteProductFromCartDB, [cart_id, product_id])
+    );
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    } else {
+      return;
+    }
+  },
+
+  /**
+   * `{url}/shopping_cart/userId/itemId/remove`
+   *
    * The particular method removes a particular product (based on itemID received) from the Users cart.
    *
    *

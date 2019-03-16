@@ -5,21 +5,60 @@ const userController = require("./user");
 const checkAuth = require("../middleware/check-auth");
 const retailerPath = require("../../config/private_routes");
 
-
 // Sign up a Shopper
-router.post("/signup/shopper", userController.signupShopper);
+router.post(
+  "/signup/shopper",
+  userController.checkUserExistence,
+  userController.createHashedPass,
+  userController.createShopper,
+  userController.createRefreshToken,
+  userController.createAccessToken,
+  userController.sendAuthResponse,
+);
 
 // Sign up an Retailer
-router.post(retailerPath, userController.signupRetailer);
+router.post(
+  retailerPath,
+  userController.checkUserExistence,
+  userController.createHashedPass,
+  userController.createRetailer,
+  userController.createRefreshToken,
+  userController.createAccessToken,
+  userController.sendAuthResponse,
+);
 
 // Log in a Shopper (req.body.role will have the role of the shopper)
-router.post("/login/shopper", userController.loginShopper);
+router.post(
+  "/login/shopper",
+  userController.getShopperPassIfExists,
+  userController.checkPassCorrectness,
+  userController.createRefreshToken,
+  userController.createAccessToken,
+  userController.sendAuthResponse,
+);
 
 // Log in a Retailer (req.body.role will have the role of the retailer)
-router.post("/login/retailer", userController.loginRetailer);
+router.post(
+  "/login/retailer",
+  userController.getRetailerPassIfExists,
+  userController.checkPassCorrectness,
+  userController.createRefreshToken,
+  userController.createAccessToken,
+  userController.sendAuthResponse
+);
 
 // Log in an Admin (req.body.role will have the role of the admin)
-router.post("/login/admin", userController.loginAdmin);
+router.post(
+  "/login/admin",
+  userController.getAdminPassIfExists,
+  userController.checkPassCorrectness,
+  userController.createRefreshToken,
+  userController.createAccessToken,
+  userController.sendAuthResponse
+);
+
+// Log in a customer with google. Alternatively registers a new customer and logs them in.
+router.post('/googleLogin/customer', userController.loginCustomerWithGoogle);
 
 /**
  * Change user password.
@@ -37,7 +76,7 @@ router.patch(
  */
 router.post(
   "/forgot-password/customer",
-  userController.initiateIndividualPassReset,
+  userController.initiateIndividualPassReset
 );
 
 /**
@@ -45,24 +84,18 @@ router.post(
  */
 router.post(
   "/forgot-password/retailer",
-  userController.initiateRetailerPassReset,
+  userController.initiateRetailerPassReset
 );
 
 /**
  * Resets user password
  */
-router.post(
-    "/reset-password",
-    userController.resetPassword,
-);
+router.post("/reset-password", userController.resetPassword);
 
 /**
  * Renders html template with form to reset password
  */
-router.get(
-  "/reset-password",
-  userController.renderPassResetForm,
-);
+router.get("/reset-password", userController.renderPassResetForm);
 
 // Change user passwrod by an Administrator.
 router.patch(
@@ -107,6 +140,18 @@ router.get(
   "/:userId/details",
   // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getUserDetails
+);
+
+router.get(
+  "/:userId/purchases",
+  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.getPreviousPurchases
+);
+
+router.get(
+  "/:userId/:purchaseId",
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.getDetailsOfPreviousPurchase
 );
 
 router.get(

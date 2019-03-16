@@ -44,6 +44,13 @@ router.get(
   storeController.getStoreOrders
 );
 
+// Get details about an order
+router.get(
+  "/:storeId/orders/:orderId",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.getStoreOrder
+);
+
 // View all customers from specific shop.
 router.get(
   "/:storeId/customers",
@@ -74,6 +81,41 @@ router.delete(
   storeController.removeItem
 );
 
+// Create a new item group
+router.post(
+  "/:storeId/itemGroups",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.createOrUpdateItemGroup
+);
+
+// Get all item groups.
+router.get(
+  "/:storeId/itemGroups",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.getItemGroups
+);
+
+// Update an item group
+router.patch(
+  "/:storeId/itemGroups/:itemGroupId",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.createOrUpdateItemGroup
+);
+
+// Delete an item group
+router.delete(
+  "/:storeId/itemGroups/:itemGroupId",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.softDeleteItemGroup,
+);
+
+// Get all product details associated with an item group
+router.get(
+  "/:storeId/itemGroups/:itemGroupId/products",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.getProductDetailsByItemGroup
+);
+
 // Update a product in a store
 router.patch(
   "/:storeId/:productId",
@@ -81,12 +123,19 @@ router.patch(
   storeController.updateProduct
 );
 
-// // Create new product details for a product
-// router.post(
-//   "/:storeId/productDetails",
-//   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-//   storeController.addNewProductDetails
-// );
+// Create new product details for a product
+router.post(
+  "/:storeId/productDetails",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.createProductDetails
+);
+
+// Get all scanned unpaid products
+router.get(
+  "/:storeId/scannedUnpaidProducts",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.getScannedUnpaidProducts
+);
 
 // Get all product details in a store
 router.get(
@@ -100,6 +149,13 @@ router.get(
   "/:storeId/productDetails/:productDetailsId",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
   storeController.getProductDetails
+);
+
+// Flag details of a product as deleted
+router.delete(
+  "/:storeId/productDetails/:productDetailsId",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.softDelProductDetails
 );
 
 // Create a new product entry based on the product details id
