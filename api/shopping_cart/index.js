@@ -9,7 +9,7 @@ const role = require("../user/user-role");
 // TODO REMOVE COMMEN IN LINE 12
 router.post(
   "/:userId/add",
-  // checkAuth.userAuth([role.SHOPPER]),
+  checkAuth.userAuth([role.SHOPPER]),
   orderController.addProductToCart
 );
 
@@ -17,19 +17,30 @@ router.post(
 //remove product from order
 router.delete(
   "/:userId/remove",
-  // checkAuth.userAuth([role.SHOPPER]),
-  orderController.removeProductFromCart
+  checkAuth.userAuth([role.SHOPPER]),
+  orderController.removeProductFromCartByBarcode
 );
 
 router.post(
   "/:userId/active_cart",
-  // checkAuth.userAuth([role.SHOPPER]),
+  checkAuth.userAuth([role.SHOPPER]),
   orderController.getCartIDWithCartProductInformation
 );
 
 //add product to user shopping cart
 
-router.post("/:userId/addVoucher", orderController.addVoucherToCart);
+router.post(
+  "/:userId/addVoucher",
+  checkAuth.userAuth([role.SHOPPER]),
+  orderController.addVoucherToCart
+);
+
+//TODO checking of whether the user owns the cart
+router.delete(
+  "/:userId/deleteVoucher",
+  checkAuth.userAuth([role.SHOPPER]),
+  orderController.deleteVoucherFromCart
+);
 
 //Needs modification
 //this endpoint is called from doors and must be kept private

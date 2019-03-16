@@ -13,7 +13,7 @@ router.post(
   userController.createShopper,
   userController.createRefreshToken,
   userController.createAccessToken,
-  userController.sendAuthResponse,
+  userController.sendAuthResponse
 );
 
 // Sign up an Retailer
@@ -24,7 +24,7 @@ router.post(
   userController.createRetailer,
   userController.createRefreshToken,
   userController.createAccessToken,
-  userController.sendAuthResponse,
+  userController.sendAuthResponse
 );
 
 // Log in a Shopper (req.body.role will have the role of the shopper)
@@ -34,7 +34,7 @@ router.post(
   userController.checkPassCorrectness,
   userController.createRefreshToken,
   userController.createAccessToken,
-  userController.sendAuthResponse,
+  userController.sendAuthResponse
 );
 
 // Log in a Retailer (req.body.role will have the role of the retailer)
@@ -58,7 +58,7 @@ router.post(
 );
 
 // Log in a customer with google. Alternatively registers a new customer and logs them in.
-router.post('/googleLogin/customer', userController.loginCustomerWithGoogle);
+router.post("/googleLogin/customer", userController.loginCustomerWithGoogle);
 
 /**
  * Change user password.
@@ -111,59 +111,42 @@ router.delete(
   userController.deleteUser
 );
 
-// //get a specific order from a user
-// router.get(
-//   "/:userId/:orderId",
-//   checkAuth.userAuth([role.ADMIN, role.SHOPPER]),
-//   orderController.getCompletedOrder
-// );
-//
-// //returns all the completed orders of particular user
-// router.get(
-//   "/:userId/orders",
-//   checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-//   orderController.getUserCompletedOrders
-// );
-
-// Add coupon to user
-router.post("/:userId/addVoucher", userController.addVoucher);
-
 //update users details
 router.patch(
   "/:userId/editDetails",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.updateUserDetails
 );
 
 //returns the details of the user (firstname, lastname, dob)
 router.get(
   "/:userId/details",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getUserDetails
 );
 
 router.get(
   "/:userId/purchases",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getPreviousPurchases
 );
 
+router.get(
+  "/:userId/getCoupons",
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.getUserVouchers
+);
 router.get(
   "/:userId/:purchaseId",
   checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getDetailsOfPreviousPurchase
 );
 
-router.get(
-  "/:userId/getVouchers",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-  userController.getUserVouchers
-);
-
-router.get(
+// Add coupon to user
+router.post(
   "/:userId/addVoucher",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-  userController.addVoucherToUser
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.addVoucher
 );
 
 module.exports = router;
