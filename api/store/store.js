@@ -1486,39 +1486,6 @@ module.exports = {
     return;
   },
 
-  //checks both the existence of the voucher and also whether the voucher is redeemable already or not
-  checkVoucherExistenceAndRedeemability: async (
-    voucherId,
-    storeId,
-    retailer_id
-  ) => {
-    var checkVoucherId = "CALL get_voucher_in_store(?, ?, ?)";
-    return (voucherId = await new Promise((resolve, reject) => {
-      pool.query(
-        checkVoucherId,
-        [storeId, voucherId, retailer_id],
-        (err, result) => {
-          if (err) {
-            console.log(err);
-            reject(0);
-          } else {
-            //no voucher with the id submitted from the user was found
-            if (result[0].length === 0) {
-              reject(1);
-            } else {
-              //if redeemable is already false dont set it again to FALSE
-              //its is not redeemable
-              if (result[0][0].reedemable.includes(0o00)) {
-                reject(2);
-              }
-              resolve(result[0][0].coupon_id);
-            }
-          }
-        }
-      );
-    }));
-  },
-
   deleteVoucherFromStore: async (voucherId, storeId) => {
     var deleteVoucherFromStore = "CALL delete_voucher_from_store(?, ?)";
     return (voucherId = await new Promise((resolve, reject) => {

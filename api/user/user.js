@@ -891,6 +891,8 @@ module.exports = {
   //   }));
   // },
 
+  //gets all the vouchers that belong to the user disregarding
+  //if the vouchers are redeemable or not
   getVouchersFromUser: async userId => {
     var getUserVouchers = "CALL get_user_vouchers(?)";
     return await new Promise((res, rej) => {
@@ -899,7 +901,7 @@ module.exports = {
           return rej(err);
         } else {
           module.exports.filterUserVouchersBasedOnRedeemable(result[0]);
-          console.log(result[0]);
+
           return res(result[0]);
         }
       });
@@ -908,7 +910,7 @@ module.exports = {
   //gets all the vouchers that a user has and removes all the ones that are not redeemable
   filterUserVouchersBasedOnRedeemable: vouchersArray => {
     for (voucher in vouchersArray) {
-      //voucher is unredeemable
+      //checks whether the voucher is unredeemable
       if (
         vouchersArray[voucher].is_redeem_allowed.includes(00) ||
         !module.exports.canBeUsedBasedOnNumberOfPeople(
@@ -920,7 +922,11 @@ module.exports = {
           vouchersArray[voucher].valid_until
         )
       ) {
-        vouchersArray.splice(voucher, 1);
+        //saves the coupon id of the coupon that is about to be deleted
+        var to_delete_coupon_id = vouchersArray[voucher].coupon_id;
+        delete vouchersArray[voucher];
+        vouchersArray[voucher] =
+          "Coupon with id is not valid anymore : " + to_delete_coupon_id;
       }
     }
   },
