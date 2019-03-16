@@ -132,7 +132,7 @@ router.get(
 );
 
 router.get(
-  "/:userId/getCoupons",
+  "/:userId/getVouchers",
   checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getUserVouchers
 );
