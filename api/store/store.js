@@ -1302,7 +1302,7 @@ module.exports = {
    *
    */
   getItemGroups: async (
-    { params: { storeId }, userData: { id: userId } },
+    { params: { storeId }, userData: { userId: userId } },
     res,
     next
   ) => {
@@ -1351,7 +1351,7 @@ module.exports = {
    *
    */
   getScannedUnpaidProducts: async (
-    { params: { storeId }, userData: { id: userId } },
+    { params: { storeId }, userData: { userId: userId } },
     res,
     next
   ) => {
