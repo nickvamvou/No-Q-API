@@ -1,7 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const checkAuth = require("../middleware/check-auth");
+const { dbTransactionMiddleware } = require("../middleware");
 const role = require("../user/user-role");
+
 // For multi form data - images
 const upload = require("../middleware/upload-product-photo");
 const storeController = require("./store");
@@ -85,7 +87,10 @@ router.delete(
 router.post(
   "/:storeId/itemGroups",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.createOrUpdateItemGroup
+  dbTransactionMiddleware.startDbTransaction,
+  storeController.createOrUpdateGroupedOptions,
+  storeController.createOrUpdateItemGroup,
+  dbTransactionMiddleware.endDbTransaction,
 );
 
 // Get all item groups.

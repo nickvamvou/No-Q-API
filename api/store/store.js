@@ -1,13 +1,10 @@
 const to = require('await-to-js').default;
 const createHttpError = require("http-errors");
 const fs = require("fs");
-const util = require('util');
 
 const pool = require("../../config/db_connection");
 const role = require("../user/user-role");
-const utils = require('../utils');
-
-const { SqlError } = utils;
+const { SqlError, databaseUtil } = require('../utils');
 
 
 /**
@@ -657,40 +654,18 @@ module.exports = {
    *
    */
   createOrUpdateItemGroup: async (
-    { body: { name, description, code, categoryId, options },
+    { body: { name, description, code, categoryId },
       params: { storeId, itemGroupId: existingItemGroupId },
       userData: { id: userId }
     }, res, next
   ) => {
-    // Transactions need to maintain changes made across sequence of actions -- the state of every query.
-    // Thus, the need for a single connection instance.
-    // Grab a free connection instance for the connection pool.
-    const [ connErr, conn ] = await to(pool.getConnection());
-
-    // Forward `connErr` to central error handler
-    if (connErr) {
-      return next(createHttpError(connErr));
-    }
-
-    // Create promise-based transaction functions.
-    const beginTransaction = util.promisify(conn.beginTransaction).bind(conn);
-    const query = util.promisify(conn.query).bind(conn);
-    const rollback = util.promisify(conn.rollback).bind(conn);
-    const commit = util.promisify(conn.commit).bind(conn);
-
-    // Begin new database transaction.
-    const [ beginTransErr ] = await to(beginTransaction());
-
-    // Error starting database transaction. Forward error!
-    if (beginTransErr) {
-      return next(createHttpError(beginTransErr));
-    }
-
     /* Every query from here on is executed within the database transaction. */
+
+    const { dbTransactionInstance, optionIds } = res.locals;
 
     // Issue query to create new item group.
     let [ queryError, queryResult ] = await to(
-      query('call create_or_update_item_group(?, ?, ?, ?, ?, ?)', [
+      dbTransactionInstance.query('call create_or_update_item_group(?, ?, ?, ?, ?, ?)', [
         existingItemGroupId,
         name,
         description,
@@ -703,8 +678,7 @@ module.exports = {
     // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
     // error handler.
     if (queryError) {
-      await rollback();
-      conn.release();
+      await dbTransactionInstance.rollbackAndReleaseConn();
 
       return next(createHttpError(new SqlError(queryError)));
     }
@@ -716,7 +690,7 @@ module.exports = {
     if (!existingItemGroupId) {
       // Issue query to add item group to store.
       [ queryError ] = await to(
-        query('call add_store_item_group(?, ?)', [
+        dbTransactionInstance.query('call add_store_item_group(?, ?)', [
           itemGroupId,
           storeId,
         ])
@@ -725,8 +699,7 @@ module.exports = {
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
       // error handler.
       if (queryError) {
-        await rollback();
-        conn.release();
+        await dbTransactionInstance.rollbackAndReleaseConn();
 
         return next(createHttpError(new SqlError(queryError)));
       }
@@ -734,34 +707,59 @@ module.exports = {
 
     // Add item group to a category if needed -- `categoryId` is provided.
     if (categoryId) {
-      [ queryError ] = await to(query('call add_or_change_item_group_category(?, ?)', [
-        itemGroupId,
-        categoryId,
-      ]));
-
-      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
-      // central error handler.
-      if (queryError) {
-        await rollback();
-        conn.release();
-
-        return next(createHttpError(new SqlError(queryError)));
-      }
-    }
-
-    // Create option groups and values for created item group. Starts by going over `optionGroups` list/array
-    // containing mapped option values to group names.
-    for (const { group, values } of options) {
-      // Issue query to create new option group.
-      [ queryError, queryResult ] = await to(
-        query('call create_or_update_option_group(?)', [ group ])
+      [ queryError ] = await to(
+        dbTransactionInstance.query('call add_or_change_item_group_category(?, ?)', [ itemGroupId, categoryId ])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
       // central error handler.
       if (queryError) {
-        await rollback();
-        conn.release();
+        await dbTransactionInstance.rollbackAndReleaseConn();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+    }
+
+    // Add newly created option value to an item group.
+    [ queryError ] = await to(
+      dbTransactionInstance.query('call add_or_change_item_group_options(?, ?)', [ itemGroupId, JSON.stringify(optionIds) ])
+    );
+
+    // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+    // central error handler.
+    if (queryError) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Respond with newly created `itemGroupId` and some message.
+    res.locals.finalResponse = {
+      message: `Item group was successfully ${!existingItemGroupId ? 'created' : 'updated'}`,
+      data: {
+        id: itemGroupId,
+      },
+    };
+
+    next()
+  },
+
+  createOrUpdateGroupedOptions: async ({ body: { options } }, res, next) => {
+    const { dbTransactionInstance } = res.locals;
+    let optionIds = [];
+
+    // Create option groups and values for created item group. Starts by going over `optionGroups` list/array
+    // containing mapped option values to group names.
+    for (const { group, values } of options) {
+      // Issue query to create new option group.
+      let [ queryError, queryResult ] = await to(
+        dbTransactionInstance.query('call create_or_update_option_group(?)', [ group ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await dbTransactionInstance.rollbackAndReleaseConn();
 
         return next(createHttpError(new SqlError(queryError)));
       }
@@ -771,54 +769,26 @@ module.exports = {
 
       // Issue query to create option values for newly created option group.
       [ queryError, queryResult ] = await to(
-        query('call create_or_update_options(?, ?)', [ optionGroupId, JSON.stringify(values) ])
+        dbTransactionInstance.query('call create_or_update_options(?, ?)', [ optionGroupId, JSON.stringify(values) ])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
       // central error handler.
       if (queryError) {
-        await rollback();
-        conn.release();
+        await dbTransactionInstance.rollbackAndReleaseConn();
 
         return next(createHttpError(new SqlError(queryError)));
       }
 
       // Get `optionId`s of options created or updated from query result.
-      const [ [ { option_ids: optionIds } ] ] = queryResult;
+      const [ [ { option_ids } ] ] = queryResult;
 
-      // Add newly created option value to an item group.
-      [ queryError ] = await to(
-        query('call add_or_change_item_group_options(?, ?)', [ itemGroupId, optionIds ])
-      );
-
-      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
-      // central error handler.
-      if (queryError) {
-        await rollback();
-        conn.release();
-
-        return next(createHttpError(new SqlError(queryError)));
-      }
+      optionIds = optionIds.concat(JSON.parse(option_ids))
     }
 
-    // Make database changes so far persistent. Commit it!
-    const [ commitErr ] = await to(commit());
+    res.locals.optionIds = optionIds;
 
-    // If error occurs while persisting changes, rollback!
-    if (commitErr) {
-      await rollback();
-    }
-
-    // Finally, DB connection has served its purpose. Release it back into the pool.
-    conn.release();
-
-    // Respond with newly created `itemGroupId` and some message.
-    res.json({
-      message: `Item group was successfully ${!existingItemGroupId ? 'created' : 'updated'}`,
-      data: {
-        id: itemGroupId,
-      },
-    })
+    next();
   },
 
   /**

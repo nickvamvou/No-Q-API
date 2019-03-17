@@ -14,7 +14,7 @@ module.exports = {
 
       // Emphasize token expiration error
       if (error && error.name === 'TokenExpiredError') {
-        return next(createHttpError(401, 'Your access to this resource has expired. Token Expired'));
+        return next(createHttpError(401, 'Token Expired. Your access to this resource has expired.'));
       }
 
       if (!roles.includes(decoded.role)) {

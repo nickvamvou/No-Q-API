@@ -194,7 +194,7 @@ module.exports = {
   createRefreshToken: async (req, res, next) => {
     const { userId, role } = res.locals;
 
-    const [ error, token ] = await to(auth.createRefreshToken({ userId, role }));
+    const [ error, token ] = await to(auth.createRefreshToken({ id: userId, role }));
 
     if (error) {
       return next(createHttpError(error));
@@ -208,7 +208,7 @@ module.exports = {
   createAccessToken: async (req, res, next) => {
     const { userId, role } = res.locals;
 
-    const [ error, token ] = await to(auth.createAccessToken({ userId, role }));
+    const [ error, token ] = await to(auth.createAccessToken({ id: userId, role }));
 
     if (error) {
       return next(createHttpError(error));

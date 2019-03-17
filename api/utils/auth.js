@@ -18,7 +18,7 @@ exports.createRefreshToken = async (payload) => {
   }
 
   // Save refresh token to key value store for future authentication. Token will expire in 7 days.
-  const [ storeError ] = await to(kvStore.setAsync(payload.userId, refreshToken, 'EX', 604800));
+  const [ storeError ] = await to(kvStore.setAsync(payload.id, refreshToken, 'EX', 604800));
 
   if (storeError) {
     throw storeError;
@@ -29,7 +29,7 @@ exports.createRefreshToken = async (payload) => {
 
 exports.createAccessToken = async (payload, options) => {
   const defaultSigningOptions = {
-    subject: payload.userId.toString(),
+    subject: payload.id.toString(),
     expiresIn: '20m',
     issuer: 'NoQGroup',
   };

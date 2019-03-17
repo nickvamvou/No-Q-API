@@ -3,4 +3,5 @@ module.exports = {
   crypto: require('./crypto'),
   auth: require('./auth'),
   password: require('./password'),
+  databaseUtil: require('./database'),
 };
