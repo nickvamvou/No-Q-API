@@ -1063,7 +1063,7 @@ module.exports = {
     {
       body: { name, description, code, categoryId, options },
       params: { storeId, itemGroupId: existingItemGroupId },
-      userData: { id: userId }
+      userData: { userId: userId }
     },
     res,
     next
@@ -1257,7 +1257,7 @@ module.exports = {
    *
    */
   softDeleteItemGroup: async (
-    { params: { itemGroupId, storeId }, userData: { id: userId } },
+    { params: { itemGroupId, storeId }, userData: { userId: userId } },
     res,
     next
   ) => {

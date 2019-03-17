@@ -47,4 +47,6 @@ pool.getConnection((err, connection) => {
 // Promise-based version of pool.query that can be easily reused.
 pool.promiseQuery = util.promisify(pool.query);
 
+pool.getConnection = util.promisify(pool.getConnection);
+
 module.exports = pool;
