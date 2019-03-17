@@ -1,10 +1,7 @@
 const to = require("await-to-js").default;
 const createHttpError = require("http-errors");
 const fs = require("fs");
-
-const util = require('util');
-
-
+const util = require("util");
 const pool = require("../../config/db_connection");
 const role = require("../user/user-role");
 const utils = require("../utils");
@@ -202,10 +199,17 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getStoreOrders: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
+  getStoreOrders: async (
+    { params: { storeId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
     // Issue query to get all orders in a store.
-    let [ queryError, queryResult ] = await to(
-      pool.promiseQuery('call get_all_purchases_in_store(?, ?)', [ storeId, userId ])
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_all_purchases_in_store(?, ?)", [
+        storeId,
+        userId
+      ])
     );
 
     // Forward query error to central error handler.
@@ -214,11 +218,11 @@ module.exports = {
     }
 
     // Get items groups from query result.
-    const [ orders ] = queryResult;
+    const [orders] = queryResult;
 
     // Respond with list of all item groups.
     res.json({
-      data: orders,
+      data: orders
     });
   },
 
@@ -243,10 +247,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getStoreOrder: async ({ params: { storeId, orderId }, userData: { id: userId } }, res, next) => {
+  getStoreOrder: async (
+    { params: { storeId, orderId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
     // Issue query to get details of an order.
-    let [ queryError, queryResult ] = await to(
-      pool.promiseQuery('call get_details_of_previous_purchase(?, ?, ?)', [ storeId, orderId, userId ])
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_details_of_previous_purchase(?, ?, ?)", [
+        storeId,
+        orderId,
+        userId
+      ])
     );
 
     // Forward query error to central error handler.
@@ -255,16 +267,16 @@ module.exports = {
     }
 
     // Get items groups from query result.
-    const [ [ order ] ] = queryResult;
+    const [[order]] = queryResult;
 
     // Order not found? Send down a 404 error.
     if (!order) {
-      return next(createHttpError(404, 'Order not found'))
+      return next(createHttpError(404, "Order not found"));
     }
 
     // Return order
     res.json({
-      data: order,
+      data: order
     });
   },
 
@@ -419,10 +431,14 @@ module.exports = {
    *
    */
 
-  createProductDetails: async ({ body, params: { storeId }, userData: { id: userId } }, res, next) => {
+  createProductDetails: async (
+    { body, params: { storeId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
     // Issue query to DB to create new details of a product along with the item group it belongs to.
-    let [ queryError, queryResult ] = await to(
-      pool.promiseQuery('call create_product_details(?, ?, ?, ?, ?, ?, ?, ?)', [
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call create_product_details(?, ?, ?, ?, ?, ?, ?, ?)", [
         body.name,
         body.barcode,
         body.SKU,
@@ -430,7 +446,7 @@ module.exports = {
         body.price,
         body.itemGroupId,
         storeId,
-        userId,
+        userId
       ])
     );
 
@@ -440,14 +456,14 @@ module.exports = {
     }
 
     // Retrieve actual result set from query result
-    const [ [ { product_details_id: productDetailsId } ] ] = queryResult;
+    const [[{ product_details_id: productDetailsId }]] = queryResult;
 
     // Issue query to DB to bulk insert option value references.
     // TODO: Move this into an SP. Create an SP that'll receive productDetailsId and a list of options or option ids -- as JSON.
-    [ queryError ] = await to(
+    [queryError] = await to(
       pool.promiseQuery(
-        'insert into masterdb.product_options (product_detail_id, option_id) values ?',
-        [ body.options.map((optionId) => [ productDetailsId, optionId ]) ]
+        "insert into masterdb.product_options (product_detail_id, option_id) values ?",
+        [body.options.map(optionId => [productDetailsId, optionId])]
       )
     );
 
@@ -458,9 +474,9 @@ module.exports = {
 
     // Dish out final result :)
     res.json({
-      message: 'Product details was created',
+      message: "Product details was created",
       data: {
-        id: productDetailsId,
+        id: productDetailsId
       }
     });
   },
@@ -487,10 +503,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  softDelProductDetails: async ({ params: { productDetailsId, storeId }, userData: { id: userId } }, res, next) => {
+  softDelProductDetails: async (
+    { params: { productDetailsId, storeId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
     // Issue query flag product details as deleted.
-    let [ queryError ] = await to(
-      pool.promiseQuery('call update_product_details_as_deleted(?, ?, ?)', [ productDetailsId, storeId, userId ])
+    let [queryError] = await to(
+      pool.promiseQuery("call update_product_details_as_deleted(?, ?, ?)", [
+        productDetailsId,
+        storeId,
+        userId
+      ])
     );
 
     // Forward query error to central error handler.
@@ -953,10 +977,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getProductDetailsByItemGroup: async ({ params: { itemGroupId, storeId }, userData: { id: userId } }, res, next) => {
+  getProductDetailsByItemGroup: async (
+    { params: { itemGroupId, storeId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
     // Issue query to get details of a product in a store
     const [queryError, queryResult] = await to(
-      pool.promiseQuery('CALL get_product_details_by_item_group_id(?, ?, ?)', [ storeId, userId, itemGroupId ])
+      pool.promiseQuery("CALL get_product_details_by_item_group_id(?, ?, ?)", [
+        storeId,
+        userId,
+        itemGroupId
+      ])
     );
 
     // Forward fatal error to global error handler
@@ -969,8 +1001,8 @@ module.exports = {
 
     // Dish out final result :)
     res.json({
-      data: productDetails,
-    })
+      data: productDetails
+    });
   },
 
   /**
@@ -1028,15 +1060,18 @@ module.exports = {
    *
    */
   createOrUpdateItemGroup: async (
-    { body: { name, description, code, categoryId, options },
+    {
+      body: { name, description, code, categoryId, options },
       params: { storeId, itemGroupId: existingItemGroupId },
       userData: { id: userId }
-    }, res, next
+    },
+    res,
+    next
   ) => {
     // Transactions need to maintain changes made across sequence of actions -- the state of every query.
     // Thus, the need for a single connection instance.
     // Grab a free connection instance for the connection pool.
-    const [ connErr, conn ] = await to(pool.getConnection());
+    const [connErr, conn] = await to(pool.getConnection());
 
     // Forward `connErr` to central error handler
     if (connErr) {
@@ -1050,7 +1085,7 @@ module.exports = {
     const commit = util.promisify(conn.commit).bind(conn);
 
     // Begin new database transaction.
-    const [ beginTransErr ] = await to(beginTransaction());
+    const [beginTransErr] = await to(beginTransaction());
 
     // Error starting database transaction. Forward error!
     if (beginTransErr) {
@@ -1060,14 +1095,14 @@ module.exports = {
     /* Every query from here on is executed within the database transaction. */
 
     // Issue query to create new item group.
-    let [ queryError, queryResult ] = await to(
-      query('call create_or_update_item_group(?, ?, ?, ?, ?, ?)', [
+    let [queryError, queryResult] = await to(
+      query("call create_or_update_item_group(?, ?, ?, ?, ?, ?)", [
         existingItemGroupId,
         name,
         description,
         code,
         storeId,
-        userId,
+        userId
       ])
     );
 
@@ -1081,16 +1116,13 @@ module.exports = {
     }
 
     // Get `itemGroupId` from query result.
-    const [ [ { item_group_id: itemGroupId } ] ] = queryResult;
+    const [[{ item_group_id: itemGroupId }]] = queryResult;
 
     // Only add new item group to store.
     if (!existingItemGroupId) {
       // Issue query to add item group to store.
-      [ queryError ] = await to(
-        query('call add_store_item_group(?, ?)', [
-          itemGroupId,
-          storeId,
-        ])
+      [queryError] = await to(
+        query("call add_store_item_group(?, ?)", [itemGroupId, storeId])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
@@ -1105,10 +1137,12 @@ module.exports = {
 
     // Add item group to a category if needed -- `categoryId` is provided.
     if (categoryId) {
-      [ queryError ] = await to(query('call add_or_change_item_group_category(?, ?)', [
-        itemGroupId,
-        categoryId,
-      ]));
+      [queryError] = await to(
+        query("call add_or_change_item_group_category(?, ?)", [
+          itemGroupId,
+          categoryId
+        ])
+      );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
       // central error handler.
@@ -1124,8 +1158,8 @@ module.exports = {
     // containing mapped option values to group names.
     for (const { group, values } of options) {
       // Issue query to create new option group.
-      [ queryError, queryResult ] = await to(
-        query('call create_or_update_option_group(?)', [ group ])
+      [queryError, queryResult] = await to(
+        query("call create_or_update_option_group(?)", [group])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
@@ -1138,11 +1172,14 @@ module.exports = {
       }
 
       // Get `optionGroupId` from query result for next query.
-      const [ [ { option_group_id: optionGroupId } ] ] = queryResult;
+      const [[{ option_group_id: optionGroupId }]] = queryResult;
 
       // Issue query to create option values for newly created option group.
-      [ queryError, queryResult ] = await to(
-        query('call create_or_update_options(?, ?)', [ optionGroupId, JSON.stringify(values) ])
+      [queryError, queryResult] = await to(
+        query("call create_or_update_options(?, ?)", [
+          optionGroupId,
+          JSON.stringify(values)
+        ])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
@@ -1155,11 +1192,14 @@ module.exports = {
       }
 
       // Get `optionId`s of options created or updated from query result.
-      const [ [ { option_ids: optionIds } ] ] = queryResult;
+      const [[{ option_ids: optionIds }]] = queryResult;
 
       // Add newly created option value to an item group.
-      [ queryError ] = await to(
-        query('call add_or_change_item_group_options(?, ?)', [ itemGroupId, optionIds ])
+      [queryError] = await to(
+        query("call add_or_change_item_group_options(?, ?)", [
+          itemGroupId,
+          optionIds
+        ])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
@@ -1173,7 +1213,7 @@ module.exports = {
     }
 
     // Make database changes so far persistent. Commit it!
-    const [ commitErr ] = await to(commit());
+    const [commitErr] = await to(commit());
 
     // If error occurs while persisting changes, rollback!
     if (commitErr) {
@@ -1185,11 +1225,13 @@ module.exports = {
 
     // Respond with newly created `itemGroupId` and some message.
     res.json({
-      message: `Item group was successfully ${!existingItemGroupId ? 'created' : 'updated'}`,
+      message: `Item group was successfully ${
+        !existingItemGroupId ? "created" : "updated"
+      }`,
       data: {
-        id: itemGroupId,
-      },
-    })
+        id: itemGroupId
+      }
+    });
   },
 
   /**
@@ -1214,10 +1256,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  softDeleteItemGroup: async ({ params: { itemGroupId, storeId }, userData: { id: userId } }, res, next) => {
+  softDeleteItemGroup: async (
+    { params: { itemGroupId, storeId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
     // Issue query flag item group as deleted.
-    let [ queryError ] = await to(
-      pool.promiseQuery('call update_item_group_as_deleted(?, ?, ?)', [ itemGroupId, storeId, userId ])
+    let [queryError] = await to(
+      pool.promiseQuery("call update_item_group_as_deleted(?, ?, ?)", [
+        itemGroupId,
+        storeId,
+        userId
+      ])
     );
 
     // Forward query error to central error handler.
@@ -1251,9 +1301,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getItemGroups: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
+  getItemGroups: async (
+    { params: { storeId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
     // Issue query to get all item groups.
-    let [queryError, queryResult] = await to(pool.promiseQuery('call get_item_groups_by_store_id(?, ?)', [ storeId, userId ]));
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_item_groups_by_store_id(?, ?)", [
+        storeId,
+        userId
+      ])
+    );
 
     // Forward query error to central error handler.
     if (queryError) {
@@ -1265,7 +1324,7 @@ module.exports = {
 
     // Respond with list of all item groups.
     res.json({
-      data: itemGroups,
+      data: itemGroups
     });
   },
 
@@ -1291,9 +1350,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getScannedUnpaidProducts: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
+  getScannedUnpaidProducts: async (
+    { params: { storeId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
     // Issue query to get all scanned unpaid products.
-    let [ queryError, queryResult ] = await to(pool.promiseQuery('call get_current_scanned_items(?, ?)', [ storeId, userId ]));
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_current_scanned_items(?, ?)", [
+        storeId,
+        userId
+      ])
+    );
 
     // Forward query error to central error handler.
     if (queryError) {
@@ -1301,7 +1369,7 @@ module.exports = {
     }
 
     // Get returned products from query result.
-    const [ data ] = queryResult;
+    const [data] = queryResult;
 
     // Respond with list of all item groups.
     res.json({ data });

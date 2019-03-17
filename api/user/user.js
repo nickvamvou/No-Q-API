@@ -13,28 +13,37 @@ const jwt = require("jsonwebtoken");
 const key = require("../../config/jwt_s_key");
 const { SqlError, password, auth } = require("../utils");
 const { initiateResetPassword } = require("./helpers");
-
+var moment = require("moment");
 
 module.exports = {
   checkUserExistence: async ({ body: { email } }, res, next) => {
-    const [ error, result ] = await to(
-      pool.promiseQuery('CALL get_user_id_by_email(?)', [ email ])
+    const [error, result] = await to(
+      pool.promiseQuery("CALL get_user_id_by_email(?)", [email])
     );
 
     if (error) {
       return next(createHttpError(new SqlError(error)));
     }
 
-    const [ [ user ] ] = result;
+    const [[user]] = result;
 
     if (user) {
-      return next(createHttpError(409, 'Looks like you already created an account. Please login to continue.'))
+      return next(
+        createHttpError(
+          409,
+          "Looks like you already created an account. Please login to continue."
+        )
+      );
     }
 
     next();
   },
 
-  createHashedPass: async ({ body: { password: plainTextPass } }, res, next) => {
+  createHashedPass: async (
+    { body: { password: plainTextPass } },
+    res,
+    next
+  ) => {
     const [error, hash] = await to(password.hashPassword(plainTextPass));
 
     if (error) {
@@ -43,14 +52,14 @@ module.exports = {
 
     res.locals.hashPassword = hash;
 
-    next()
+    next();
   },
 
-  createShopper: async ({ body: { email} }, res, next) => {
+  createShopper: async ({ body: { email } }, res, next) => {
     const { hashPassword } = res.locals;
 
-    const [ error, result ] = await to(
-      pool.promiseQuery('CALL create_customer(?, ?)', [ email, hashPassword ])
+    const [error, result] = await to(
+      pool.promiseQuery("CALL create_customer(?, ?)", [email, hashPassword])
     );
 
     if (error) {
@@ -68,11 +77,20 @@ module.exports = {
     next();
   },
 
-  createRetailer: async ({ body: { email, companyName, brandName } }, res, next) => {
+  createRetailer: async (
+    { body: { email, companyName, brandName } },
+    res,
+    next
+  ) => {
     const { hashPassword } = res.locals;
 
-    const [ error, result ] = await to(
-      pool.promiseQuery('CALL create_retailer(?, ?, ?, ?)', [ email, hashPassword, companyName, brandName ])
+    const [error, result] = await to(
+      pool.promiseQuery("CALL create_retailer(?, ?, ?, ?)", [
+        email,
+        hashPassword,
+        companyName,
+        brandName
+      ])
     );
 
     if (error) {
@@ -91,20 +109,29 @@ module.exports = {
   },
 
   // Log-in a Shopper
-  getShopperPassIfExists: async ({ body: { email, password: providedPass } }, res, next) => {
+  getShopperPassIfExists: async (
+    { body: { email, password: providedPass } },
+    res,
+    next
+  ) => {
     // Check if there is a user with these credential based on email
-    const [ queryError, queryResult ] = await to(
-      pool.promiseQuery('CALL get_customer_password_by_email(?)', [ email ])
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery("CALL get_customer_password_by_email(?)", [email])
     );
 
     if (queryError) {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    const [ [ { uid: userId, password: hashedPass } = {} ] ] = queryResult;
+    const [[{ uid: userId, password: hashedPass } = {}]] = queryResult;
 
     if (!userId) {
-      return next(createHttpError(404, 'Sorry but it looks like you don\'t have an account with us yet.'))
+      return next(
+        createHttpError(
+          404,
+          "Sorry but it looks like you don't have an account with us yet."
+        )
+      );
     }
 
     res.locals.userId = userId;
@@ -117,21 +144,28 @@ module.exports = {
 
   // Log-in a Retailer
   getRetailerPassIfExists: async (req, res, next) => {
-    const { body: { email, password: providedPass } } = req;
+    const {
+      body: { email, password: providedPass }
+    } = req;
 
     // Check if there is a user with these credential based on email
-    const [ queryError, queryResult ] = await to(
-      pool.promiseQuery('CALL get_retailer_password_by_email(?)', [ email ])
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery("CALL get_retailer_password_by_email(?)", [email])
     );
 
     if (queryError) {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    const [ [ { uid: userId, password: hashedPass } = {} ] ] = queryResult;
+    const [[{ uid: userId, password: hashedPass } = {}]] = queryResult;
 
     if (!userId) {
-      return next(createHttpError(404, 'Sorry but it looks like you don\'t have an account with us yet.'))
+      return next(
+        createHttpError(
+          404,
+          "Sorry but it looks like you don't have an account with us yet."
+        )
+      );
     }
 
     res.locals.userId = userId;
@@ -144,20 +178,27 @@ module.exports = {
 
   // Log-in an Admin
   getAdminPassIfExists: async (req, res, next) => {
-    const { body: { email, password: providedPass } } = req;
+    const {
+      body: { email, password: providedPass }
+    } = req;
 
-    const [ queryError, queryResult ] = await to(
-      pool.promiseQuery('CALL get_admin_password_by_email(?)', [ email ])
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery("CALL get_admin_password_by_email(?)", [email])
     );
 
     if (queryError) {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    const [ [ { uid: userId, password: hashedPass } = {} ] ] = queryResult;
+    const [[{ uid: userId, password: hashedPass } = {}]] = queryResult;
 
     if (!userId) {
-      return next(createHttpError(404, 'Sorry but it looks like you don\'t have an account with us yet.'))
+      return next(
+        createHttpError(
+          404,
+          "Sorry but it looks like you don't have an account with us yet."
+        )
+      );
     }
 
     res.locals.userId = userId;
@@ -171,7 +212,9 @@ module.exports = {
   checkPassCorrectness: async (req, res, next) => {
     const { providedPass, hashedPass } = res.locals;
 
-    const [ error, isCorrect ] = await to(password.checkPassCorrectness(providedPass, hashedPass));
+    const [error, isCorrect] = await to(
+      password.checkPassCorrectness(providedPass, hashedPass)
+    );
 
     if (error) {
       return next(createHttpError(error));
@@ -181,7 +224,7 @@ module.exports = {
       return next(
         createHttpError(
           401,
-          'There seems to be an issue with you password. Please ensure you\'re putting in the right password/'
+          "There seems to be an issue with you password. Please ensure you're putting in the right password/"
         )
       );
     }
@@ -192,7 +235,7 @@ module.exports = {
   createRefreshToken: async (req, res, next) => {
     const { userId, role } = res.locals;
 
-    const [ error, token ] = await to(auth.createRefreshToken({ userId, role }));
+    const [error, token] = await to(auth.createRefreshToken({ userId, role }));
 
     if (error) {
       return next(createHttpError(error));
@@ -206,7 +249,7 @@ module.exports = {
   createAccessToken: async (req, res, next) => {
     const { userId, role } = res.locals;
 
-    const [ error, token ] = await to(auth.createAccessToken({ userId, role }));
+    const [error, token] = await to(auth.createAccessToken({ userId, role }));
 
     if (error) {
       return next(createHttpError(error));
@@ -222,7 +265,7 @@ module.exports = {
 
     res.json({
       refreshToken,
-      accessToken,
+      accessToken
     });
   },
 
@@ -297,8 +340,11 @@ module.exports = {
     }
 
     // All checks passed. Everything seems good! Create JWT token containing either new or existing customer's `id` and `role`.
-    const [ jwtError, token ] = await to(
-      util.promisify(jwt.sign)({ id: customerId, role: role.SHOPPER }, key.jwt_key, { expiresIn: "1h" }
+    const [jwtError, token] = await to(
+      util.promisify(jwt.sign)(
+        { id: customerId, role: role.SHOPPER },
+        key.jwt_key,
+        { expiresIn: "1h" }
       )
     );
 
@@ -885,9 +931,7 @@ module.exports = {
   /**
    * Retrieves all the details of a specific purchase
    */
-  getDetailsOfPreviousPurchase: async (req, res, next) => {
-
-  },
+  getDetailsOfPreviousPurchase: async (req, res, next) => {},
 
   /*
   ******************************************************************************
@@ -1002,7 +1046,6 @@ module.exports = {
     }));
   },
 
-
   checkIfVoucherIsRedeemable: async voucherCode => {
     var getVoucherIdAndReedemable =
       "CALL get_voucher_reedemable_and_id_and_people_using(?)";
@@ -1031,7 +1074,6 @@ module.exports = {
       });
     }));
   },
-
 
   getVouchersFromUser: async userId => {
     var getUserVouchers = "CALL get_user_vouchers(?)";

@@ -13,7 +13,7 @@ router.post(
   userController.createShopper,
   userController.createRefreshToken,
   userController.createAccessToken,
-  userController.sendAuthResponse,
+  userController.sendAuthResponse
 );
 
 // Sign up an Retailer
@@ -24,7 +24,7 @@ router.post(
   userController.createRetailer,
   userController.createRefreshToken,
   userController.createAccessToken,
-  userController.sendAuthResponse,
+  userController.sendAuthResponse
 );
 
 // Log in a Shopper (req.body.role will have the role of the shopper)
@@ -34,7 +34,7 @@ router.post(
   userController.checkPassCorrectness,
   userController.createRefreshToken,
   userController.createAccessToken,
-  userController.sendAuthResponse,
+  userController.sendAuthResponse
 );
 
 // Log in a Retailer (req.body.role will have the role of the retailer)
@@ -58,7 +58,7 @@ router.post(
 );
 
 // Log in a customer with google. Alternatively registers a new customer and logs them in.
-router.post('/googleLogin/customer', userController.loginCustomerWithGoogle);
+router.post("/googleLogin/customer", userController.loginCustomerWithGoogle);
 
 /**
  * Change user password.
@@ -143,6 +143,12 @@ router.get(
 );
 
 router.get(
+  "/:userId/getVouchers",
+  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  userController.getUserVouchers
+);
+
+router.get(
   "/:userId/purchases",
   // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getPreviousPurchases
@@ -152,12 +158,6 @@ router.get(
   "/:userId/:purchaseId",
   checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getDetailsOfPreviousPurchase
-);
-
-router.get(
-  "/:userId/getVouchers",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-  userController.getUserVouchers
 );
 
 router.get(
