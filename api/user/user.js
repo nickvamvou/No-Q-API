@@ -5,11 +5,9 @@ const bcrypt = require("bcrypt");
 const to = require("await-to-js").default;
 const util = require("util");
 const pool = require("../../config/db_connection");
-
 const cacheRegister = require("../../config/cache_register");
 const mailer = require("../../config/mailer");
 const { googleOAuth2Client } = require("../../config/google_auth");
-
 const role = require("./user-role");
 const jwt = require("jsonwebtoken");
 const key = require("../../config/jwt_s_key");
@@ -812,91 +810,60 @@ module.exports = {
             Error (404) cart not found.
    */
   addVoucher: async (req, res, next) => {
-    //delete the particular user from db
-    // var authorized = module.exports.checkAuthorization(
-    //   req.params.userId,
-    //   req.userData.id,
-    //   req.userData.role
-    // );
+    //get the voucher details and check whether its redeemable (if not throw error)
+    var voucherDetails = await module.exports.checkIfVoucherIsRedeemable(
+      req.body.voucherCode
+    );
 
-    authorized = true;
-
-    if (authorized) {
-      //check if the voucher is valid and redeemable, if it is return the voucher id
-      var voucher_id = await module.exports
-        .checkIfVoucherIsRedeemable(req.body.voucherCode)
-        //voucher details includes id of voucher max number allowed to use, how many have used it
-        .then(async voucher_details => {
-          //check if less that the required people have used it
-          var checkBasedOnPeople = module.exports.checkIfVoucherCanBeUsedBasedOnNumberOfPeople(
-            voucher_details.number_of_usage,
-            voucher_details.max_number_allowed
-          );
-
-          if (checkBasedOnPeople) {
-            //add it to the specific user
-            await module.exports
-              .addVoucherToUser(req.params.userId, voucher_details.coupon_id)
-              .then(() => {
-                //remove the number of people using the voucher + the max number of people that can use it and if its redeemable
-                delete voucher_details.number_of_usage;
-                delete voucher_details.max_number_allowed;
-                delete voucher_details.reedemable;
-
-                return res.status(200).json({
-                  message: "Voucher was added to user",
-                  voucher: voucher_details
-                });
-              })
-              .catch(err => {
-                if (err === 0) {
-                  return res.status(404).json({
-                    message: "User already has the particular voucher"
-                  });
-                }
-                return res.status(500).json({
-                  message:
-                    "Voucher cannot be added to user see below for error message",
-                  error: err
-                });
-              });
-          }
-          //cannot use the coupon because has reached maximum people to use
-          //TODO make it unredeemable
-          else {
-            return res.status(404).json({
-              message:
-                "Voucher cannot be added, as it has been used from too many users"
-            });
-          }
-        })
-        .catch(err => {
-          console.log(err);
-          if (err === 1) {
-            return res.status(404).json({
-              message: "Wrong voucher code"
-            });
-          } else if (err === 2) {
-            return res.status(404).json({
-              message: "Redeemable of voucher is set to null"
-            });
-          } else {
-            return res.status(404).json({
-              message: "Voucher is currently not redeemable"
-            });
-          }
-        });
-    } else {
-      return res.status(401).json({
-        message: "Authentication Failed"
+    if (voucherDetails instanceof Error) {
+      console.log("error");
+      return res.status(500).json({
+        message: "DB error or voucher is not redeembale"
       });
     }
 
-    //check if the voucher is valid and redeemable, if it is return the voucher id
+    const [{ coupon_id }] = voucherDetails;
 
-    //TODO dont duplicate this method its supposed to be in shopping carts
+    var added = await module.exports.addVoucherToUser(
+      req.params.userId,
+      coupon_id
+    );
 
-    //add it to the voucher_user
+    if (added instanceof Error) {
+      return res.status(500).json({
+        message: "Could not add voucher to user"
+      });
+    }
+
+    return res.status(200).json({
+      message: "Voucher was added to user",
+      voucher: voucherDetails
+    });
+  },
+
+  addVoucherToUser: async (userId, voucherId) => {
+    var addVoucherToUserProcedure = "CALL add_voucher_to_user(?, ?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(addVoucherToUserProcedure, [
+        moment(new Date()).format("YYYY-MM-DD"),
+        userId,
+        voucherId
+      ])
+    );
+
+    //get any possible error
+    if (queryError) {
+      console.log(queryError);
+      return queryError;
+    }
+
+    if (queryResult.affectedRows === 0) {
+      console.log("error empty rows");
+      return new Error();
+    }
+
+    return queryResult;
   },
 
   getPreviousPurchases: async (req, res, next) => {
@@ -1035,6 +1002,7 @@ module.exports = {
     }));
   },
 
+
   checkIfVoucherIsRedeemable: async voucherCode => {
     var getVoucherIdAndReedemable =
       "CALL get_voucher_reedemable_and_id_and_people_using(?)";
@@ -1064,6 +1032,7 @@ module.exports = {
     }));
   },
 
+
   getVouchersFromUser: async userId => {
     var getUserVouchers = "CALL get_user_vouchers(?)";
     return await new Promise((res, rej) => {
@@ -1071,30 +1040,113 @@ module.exports = {
         if (err) {
           return rej(err);
         } else {
+          module.exports.filterUserVouchersBasedOnRedeemable(result[0]);
+
           return res(result[0]);
         }
       });
     });
   },
+  //gets all the vouchers that a user has and removes all the ones that are not redeemable
+  filterUserVouchersBasedOnRedeemable: vouchersArray => {
+    for (voucher in vouchersArray) {
+      //checks whether the voucher is unredeemable
+      if (
+        vouchersArray[voucher].is_redeem_allowed.includes(00) ||
+        !module.exports.canBeUsedBasedOnNumberOfPeople(
+          vouchersArray[voucher].number_of_usage,
+          vouchersArray[voucher].max_number_allowed
+        ) ||
+        !module.exports.voucherDatesAreGood(
+          vouchersArray[voucher].valid_from,
+          vouchersArray[voucher].valid_until
+        )
+      ) {
+        //saves the coupon id of the coupon that is about to be deleted
+        var to_delete_coupon_id = vouchersArray[voucher].coupon_id;
+        delete vouchersArray[voucher];
+        vouchersArray[voucher] =
+          "Coupon with id is not valid anymore : " + to_delete_coupon_id;
+      }
+    }
+  },
 
-  addVoucherToUser: async (userId, voucherId) => {
-    var addVoucherToUserProcedure = "CALL add_voucher_to_user(?, ?)";
-    return await new Promise((res, rej) => {
-      pool.query(
-        addVoucherToUserProcedure,
-        [userId, voucherId],
-        (err, result) => {
-          if (err) {
-            if (err.errno == 1062) {
-              return rej(0);
-            }
-            return rej(err);
-          } else {
-            return res();
-          }
-        }
-      );
-    });
+  checkIfVoucherIsRedeemable: async voucherCode => {
+    var getVoucherInformation =
+      "CALL get_voucher_information_by_voucher_code(?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(getVoucherInformation, [voucherCode])
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    const [resultSet] = queryResult;
+
+    console.log(resultSet);
+    //could not find the coupon being searched
+    if (resultSet.length === 0) {
+      return new Error("Does not exist");
+    }
+
+    //TODO might not have to do all the checks only the date and the redeemability
+    //get the values needed to check for redeemability
+    const [
+      {
+        is_redeem_allowed,
+        max_number_allowed,
+        valid_from,
+        valid_until,
+        number_of_usage
+      }
+    ] = resultSet;
+
+    if (
+      is_redeem_allowed.includes(00) ||
+      !module.exports.canBeUsedBasedOnNumberOfPeople(
+        number_of_usage,
+        max_number_allowed
+      ) ||
+      !module.exports.voucherDatesAreGood(valid_from, valid_until)
+    ) {
+      return new Error("Is unredeemable");
+    }
+
+    return resultSet;
+
+    // const [{ id }] = resultSet;
+  },
+
+  //Receives voucher starting, expiring date and checks whether the user can add it to the cart
+  voucherDatesAreGood: (voucher_start_date, voucher_end_date) => {
+    let current_date = moment(new Date()).format("YYYY/MM/DD");
+    let voucher_start_date_final = moment(new Date(voucher_start_date)).format(
+      "YYYY/MM/DD"
+    );
+    let voucher_end_date_final = moment(new Date(voucher_end_date)).format(
+      "YYYY/MM/DD"
+    );
+
+    if (
+      current_date >= voucher_end_date_final ||
+      current_date < voucher_start_date_final
+    ) {
+      return false;
+    } else {
+      return true;
+    }
+
+    // console.log(mydate.toDateString());
+  },
+
+  canBeUsedBasedOnNumberOfPeople: (numberUsingVoucher, maxNumberAllowed) => {
+    if (numberUsingVoucher >= maxNumberAllowed) {
+      return false;
+    }
+    return true;
   },
 
   getUserDetailsFromDb: async userId => {

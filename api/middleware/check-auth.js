@@ -3,7 +3,6 @@ const to = require('await-to-js').default;
 const { auth } = require('../utils');
 //This file checks for authentication, by examining the data in the JWT
 
-
 module.exports = {
   userAuth: (roles) => {
     return async (req, res, next) => {
