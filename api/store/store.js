@@ -27,13 +27,13 @@ module.exports = {
    */
   createNewStore: (req, res, next) => {
     //id of retailer to create new store
-    const retailerId = req.userData.id;
+    const retailerId = req.userData.userId;
     /*
     Checks if the requesting user is the same as the owner of the store
     to be created for or the requesting user is an admin.
      */
     var authorized = module.exports.checkAuthorizationRole(
-      req.userData.id,
+      req.userData.userId,
       req.params.userId,
       req.userData.role
     );
@@ -93,7 +93,7 @@ module.exports = {
   removeStore: (req, res, next) => {
     // Check if user is administrator
     var authorized = module.exports.checkAuthorizationRole(
-      req.userData.id,
+      req.userData.userId,
       req.params.userId,
       req.userData.role
     );
@@ -115,7 +115,7 @@ module.exports = {
   },
 
   //req.params.userId is the userId received from URL
-  //req.userData.id is the user id added from check-auth in JWT token
+  //req.userData.userId is the user id added from check-auth in JWT token
   //req.userData.role is the user role added from check-auth in JWT token
   //req.params.storeId is the store id provided by the URL
   getAllStores: (req, res, next) => {
@@ -144,7 +144,7 @@ module.exports = {
     //checks if user is authorized to access information about the store
     //authorization if store id is managed from user id
     var authorized = module.exports.checkAuthorizationRole(
-      req.userData.id,
+      req.userData.userId,
       req.params.userId,
       req.userData.role
     );
@@ -285,7 +285,7 @@ module.exports = {
     //checks if user is authorized to access information about the store
     module.exports
       .checkAuthorization(
-        req.userData.id,
+        req.userData.userId,
         req.userData.role,
         req.params.storeId
       )
@@ -323,7 +323,7 @@ module.exports = {
   getProductsFromStore: (req, res, next) => {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
-      req.userData.id,
+      req.userData.userId,
       req.userData.role,
       req.params.storeId
     );
@@ -333,7 +333,7 @@ module.exports = {
   addNewProduct: (req, res, next) => {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
-      req.userData.id,
+      req.userData.userId,
       req.userData.role,
       req.params.storeId
     );
@@ -355,7 +355,7 @@ module.exports = {
   removeItem: (req, res, next) => {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
-      req.userData.id,
+      req.userData.userId,
       req.userData.role,
       req.params.storeId
     );
@@ -390,7 +390,7 @@ module.exports = {
   },
   updateProduct: (req, res, next) => {
     var authorized = checkAuthorization(
-      req.userData.id,
+      req.userData.userId,
       req.userData.role,
       req.params.storeId
     );
@@ -1386,7 +1386,7 @@ module.exports = {
     // Check if requesting user is the same as the logged in user.
     var authorized = module.exports
       .checkAuthorizationRole(
-        req.userData.id,
+        req.userData.userId,
         req.params.userId,
         req.userData.role
       )
@@ -1476,7 +1476,7 @@ module.exports = {
     //authorization if store id is managed from user id
     var authorized = module.exports
       .checkAuthorization(
-        req.userData.id,
+        req.userData.userId,
         req.userData.role,
         req.params.storeId
       )
@@ -1569,7 +1569,7 @@ module.exports = {
     // //authorization if store id is managed from user id
     // var authorized = module.exports
     //   .checkAuthorization(
-    //     req.userData.id,
+    //     req.userData.userId,
     //     req.userData.role,
     //     req.params.storeId
     //   )
@@ -1597,7 +1597,7 @@ module.exports = {
           req.body.voucher_code,
           req.body.max_number_allowed,
           req.params.storeId,
-          req.userData.id
+          req.userData.userId
         )
         .then(voucher_details => {
           if (voucher_details instanceof Error) {
@@ -1622,7 +1622,7 @@ module.exports = {
   getVouchersFromShop: async (req, res, next) => {
     var vouchers = await module.exports.getVouchersFromShopDB(
       req.params.storeId,
-      req.userData.id
+      req.userData.userId
     );
     if (vouchers instanceof Error) {
       return res.status(500).json({
@@ -1751,7 +1751,7 @@ module.exports = {
     // //authorization if store id is managed from user id
     // var authorized = module.exports
     //   .checkAuthorization(
-    //     req.userData.id,
+    //     req.userData.userId,
     //     req.userData.role,
     //     req.params.storeId
     //   )
@@ -1764,7 +1764,7 @@ module.exports = {
         .checkVoucherExistenceAndRedeemability(
           req.params.voucherId,
           req.params.storeId,
-          req.userData.id
+          req.userData.userId
         )
         .then(async voucher_id => {
           //if its reaches in this point of the execution then we can delete the voucher from the store

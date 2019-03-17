@@ -376,7 +376,7 @@ module.exports = {
   updateUserDetails: async (req, res, next) => {
     // var authorized = module.exports.checkAuthorization(
     //   req.params.userId,
-    //   req.userData.id,
+    //   req.userData.userId,
     //   req.userData.role
     // );
 
@@ -418,7 +418,7 @@ module.exports = {
     //check that the user has access to the vouchers he/she is requesting
     // var authorized = module.exports.checkAuthorization(
     //   req.params.userId,
-    //   req.userData.id,
+    //   req.userData.userId,
     //   req.userData.role
     // );
     authorized = true;
@@ -470,7 +470,7 @@ module.exports = {
     //checking that the user that wants to change the password has authorization
     var authorized = module.exports.checkAuthorization(
       req.params.userId,
-      req.userData.id,
+      req.userData.userId,
       req.userData.role
     );
     //users must provide their old passwords
@@ -583,13 +583,13 @@ module.exports = {
     //delete the particular user from db
     var authorized = module.exports.checkAuthorization(
       req.params.userId,
-      req.userData.id,
+      req.userData.userId,
       req.userData.role
     );
 
     if (authorized) {
       var sql = "CALL delete_user_by_id(?)";
-      var id = req.userData.id;
+      var id = req.userData.userId;
       pool.query(sql, id, (err, result) => {
         if (err) {
           //user not found
@@ -624,7 +624,7 @@ module.exports = {
   getUserDetails: async (req, res, next) => {
     // var authorized = module.exports.checkAuthorization(
     //   req.params.userId,
-    //   req.userData.id,
+    //   req.userData.userId,
     //   req.userData.role
     // );
     var authorized = true;
