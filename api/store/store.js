@@ -200,7 +200,7 @@ module.exports = {
    *
    */
   getStoreOrders: async (
-    { params: { storeId }, userData: { id: userId } },
+    { params: { storeId }, userData: { userId: userId } },
     res,
     next
   ) => {
@@ -248,7 +248,7 @@ module.exports = {
    *
    */
   getStoreOrder: async (
-    { params: { storeId, orderId }, userData: { id: userId } },
+    { params: { storeId, orderId }, userData: { userId: userId } },
     res,
     next
   ) => {
@@ -432,7 +432,7 @@ module.exports = {
    */
 
   createProductDetails: async (
-    { body, params: { storeId }, userData: { id: userId } },
+    { body, params: { storeId }, userData: { userId: userId } },
     res,
     next
   ) => {
@@ -504,7 +504,7 @@ module.exports = {
    *
    */
   softDelProductDetails: async (
-    { params: { productDetailsId, storeId }, userData: { id: userId } },
+    { params: { productDetailsId, storeId }, userData: { userId: userId } },
     res,
     next
   ) => {
@@ -978,7 +978,7 @@ module.exports = {
    *
    */
   getProductDetailsByItemGroup: async (
-    { params: { itemGroupId, storeId }, userData: { id: userId } },
+    { params: { itemGroupId, storeId }, userData: { userId: userId } },
     res,
     next
   ) => {
