@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start-server:dev": "$(npm bin)/pm2 start ./bin/www --no-daemon --watch",
-    "stop-server:dev": "$(npm bin)/pm2 stop www",
+    "start": "$(npm bin)/pm2 start ./bin/www --no-daemon --watch",
+    "stop": "$(npm bin)/pm2 stop www",
     "test": "jest --watchAll"
   },
   "dependencies": {
@@ -36,7 +36,6 @@
   "devDependencies": {
     "eslint": "^5.13.0",
     "jest": "^23.5.0",
-    "nodemon": "^1.18.3",
     "pm2": "^3.4.0"
   }
 }
