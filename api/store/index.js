@@ -104,7 +104,10 @@ router.get(
 router.patch(
   "/:storeId/itemGroups/:itemGroupId",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.createOrUpdateItemGroup
+  dbTransactionMiddleware.startDbTransaction,
+  storeController.createOrUpdateGroupedOptions,
+  storeController.createOrUpdateItemGroup,
+  dbTransactionMiddleware.endDbTransaction,
 );
 
 // Delete an item group
