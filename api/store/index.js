@@ -133,9 +133,12 @@ router.patch(
 
 // Create new product details for a product
 router.post(
-  "/:storeId/productDetails",
+  "/:storeId/itemGroups/:itemGroupId/productDetails",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.createProductDetails
+  dbTransactionMiddleware.startDbTransaction,
+  storeController.createOrUpdateGroupedOptions,
+  storeController.createProductDetails,
+  dbTransactionMiddleware.endDbTransaction,
 );
 
 // Get all scanned unpaid products

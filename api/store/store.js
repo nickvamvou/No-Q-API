@@ -384,7 +384,7 @@ module.exports = {
   },
 
   /**
-   * Endpoint: `POST store/:storeId/productDetails`
+   * Endpoint: `POST /:storeId/itemGroups/:itemGroupId/productDetails`
    * Primary actors: [ Retailer ]
    * Secondary actors: None
    *
@@ -398,32 +398,38 @@ module.exports = {
    *   rollback DB surface changes made so far, release connection, and forward error to central error handler.
    *
    *
-   * @param `body` [Object] - Payload object
-   *
-   * @param `body.name` [String] - Name of the product.
-   * @param `body.barcode` [String] - String containing characters that represent a barcode.
-   * @param `body.SKU` [String] - Store Keeping Unit code.
-   * @param `body.quantity` [Number] - No of item of this product..
-   * @param `body.price` [Decimal] - Price of the product.
-   * @param `body.itemGroupId` [Number] - ID of the item group that the specific product belongs to.
+   * @param `name` [String] - Name of the product.
+   * @param `barcode` [String] - String containing characters that represent a barcode.
+   * @param `SKU` [String] - Store Keeping Unit code.
+   * @param `quantity` [Number] - No of item of this product..
+   * @param `price` [Decimal] - Price of the product.
+   * @param `itemGroupId` [Number] - ID of the item group that the specific product belongs to.
    * @param `storeId` [Number] - ID of the store that product should to be created in.
    * @param `userId` [Number] - Id of retailer performing action.
-   * @param `body.options` [Array] - A list of options references -- options IDs. e.g red, small, etc.
    *
    * @param `res` [Object] - Express's HTTP response object.
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  createProductDetails: async ({ body, params: { storeId }, userData: { id: userId } }, res, next) => {
+  createProductDetails: async (
+    {
+      body: { name, barcode, SKU, quantity, price },
+      params: { itemGroupId, storeId }, userData: { id: userId },
+    },
+    res,
+    next
+  ) => {
+    const { dbTransactionInstance, optionIds } = res.locals;
+
     // Issue query to DB to create new details of a product along with the item group it belongs to.
     let [ queryError, queryResult ] = await to(
-      pool.promiseQuery('call create_product_details(?, ?, ?, ?, ?, ?, ?, ?)', [
-        body.name,
-        body.barcode,
-        body.SKU,
-        body.quantity,
-        body.price,
-        body.itemGroupId,
+      dbTransactionInstance.query('call create_product_details(?, ?, ?, ?, ?, ?, ?, ?)', [
+        name,
+        barcode,
+        SKU,
+        quantity,
+        price,
+        itemGroupId,
         storeId,
         userId,
       ])
@@ -431,6 +437,8 @@ module.exports = {
 
     // Forward fatal error to global error handler
     if (queryError) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+
       return next(createHttpError(new SqlError(queryError)));
     }
 
@@ -438,26 +446,28 @@ module.exports = {
     const [ [ { product_details_id: productDetailsId } ] ] = queryResult;
 
     // Issue query to DB to bulk insert option value references.
-    // TODO: Move this into an SP. Create an SP that'll receive productDetailsId and a list of options or option ids -- as JSON.
     [ queryError ] = await to(
-      pool.promiseQuery(
-        'insert into masterdb.product_options (product_detail_id, option_id) values ?',
-        [ body.options.map((optionId) => [ productDetailsId, optionId ]) ]
+      dbTransactionInstance.query(
+        'call add_or_change_product_options(?, ?)', [ productDetailsId, JSON.stringify(optionIds) ]
       )
     );
 
     // Forward fatal error to global error handler
     if (queryError) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    // Dish out final result :)
-    res.json({
+    // Pass final response object to DB transaction middleware.
+    res.locals.finalResponse = {
       message: 'Product details was created',
       data: {
         id: productDetailsId,
       }
-    });
+    };
+
+    next();
   },
 
   /**

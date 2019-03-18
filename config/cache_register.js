@@ -10,7 +10,7 @@ bluebird.promisifyAll(redis.RedisClient.prototype);
 bluebird.promisifyAll(redis.Multi.prototype);
 
 // Create new client
-const client = redis.createClient();
+const client = redis.createClient(`${process.env.REDIS_URL}?password=${process.env.REDIS_PASS}`);
 
 client.on('connect', () => {
   console.log('Redis client connected');
