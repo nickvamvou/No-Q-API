@@ -3,8 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "$(npm bin)/pm2 start ./bin/www --no-daemon --watch",
-    "stop": "$(npm bin)/pm2 stop www",
+    "start:dev": "$(npm bin)/pm2 start ./bin/www --no-daemon --watch",
+    "stop:dev": "$(npm bin)/pm2 stop www",
+    "start:staging": "nodemon ./bin/www",
     "test": "jest --watchAll"
   },
   "dependencies": {
