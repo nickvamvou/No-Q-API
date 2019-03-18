@@ -3,9 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start:dev": "npx pm2 start ./bin/www --no-daemon --watch",
+    "start:dev": "NODE_ENV=development npx pm2 start ./bin/www --no-daemon --watch",
     "stop:dev": "npx pm2 stop www",
-    "start:staging": "npx pm2 start ./bin/www --no-daemon",
+    "start:staging": "NODE_ENV=staging npx pm2 start ./bin/www --no-daemon",
     "test": "jest --watchAll"
   },
   "dependencies": {
