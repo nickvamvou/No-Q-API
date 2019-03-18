@@ -3,7 +3,7 @@ module.exports = {
     name: "no-q-api",
     script: "./bin/www",
     env: {
-      NODE_ENV: "development"
+      NODE_ENV: "development",
     },
     env_test: {
       NODE_ENV: "test",
