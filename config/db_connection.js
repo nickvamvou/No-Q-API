@@ -12,6 +12,7 @@ const pool = mysql.createPool({
 });
 
 pool.getConnection((err, connection) => {
+  console.log(err);
   if (err) {
     if (err.code === "ENOTFOUND") {
       console.error("Database not found.");
