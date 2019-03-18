@@ -5,7 +5,7 @@
   "scripts": {
     "start:dev": "npx pm2 start ./bin/www --no-daemon --watch",
     "stop:dev": "npx pm2 stop www",
-    "start:staging": "npx pm2 ./bin/www",
+    "start:staging": "npx pm2 start ./bin/www",
     "test": "jest --watchAll"
   },
   "dependencies": {
