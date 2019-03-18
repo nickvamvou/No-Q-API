@@ -5,6 +5,10 @@ const orderController = require("./shopping_cart");
 const checkAuth = require("../middleware/check-auth");
 const role = require("../user/user-role");
 
+router.get(
+  "/:storeId/product/:barcode",
+  orderController.getProductInformationBasedOnBarcode
+);
 //add product to user shopping cart
 // TODO REMOVE COMMEN IN LINE 12
 router.post(

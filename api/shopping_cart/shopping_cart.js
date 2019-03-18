@@ -39,6 +39,50 @@ module.exports = {
     }
   },
 
+  //receives a products barcode and retrieves information based on the barcode
+  //receives storeId and barcode
+  getProductInformationBasedOnBarcode: async (req, res, next) => {
+    //based on storeId and barcode retrieves the product information
+    var product_information = await module.exports.getProductInformationBasedOnBarcodeDB(
+      req.params.storeId,
+      req.params.barcode
+    );
+
+    if (product_information instanceof Error) {
+      return res.status(500).json({
+        message: "Could not find product information in the store provided"
+      });
+    } else {
+      return res.status(200).json({
+        product_information: product_information
+      });
+    }
+  },
+
+  getProductInformationBasedOnBarcodeDB: async (storeId, barcode) => {
+    const getProductInformationBasedOnBarcodeDBProcedure =
+      "CALL get_product_infromation_from_barcode(?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(getProductInformationBasedOnBarcodeDBProcedure, [
+        storeId,
+        barcode
+      ])
+    );
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    } else {
+      const [resultSet] = queryResult;
+      //could not found information about the particular product
+      if (resultSet.length === 0) {
+        return new Error(500);
+      } else {
+        return module.exports.filterCartProductsWithOptions(resultSet);
+      }
+    }
+  },
+
   /**
    * `{url}/shopping_cart/userId/remove`
    *
@@ -210,12 +254,22 @@ module.exports = {
           cart_id = cartIdCreated;
         }
 
-        //the user has an active cart to the particular shop (or one is created), add the product to the cart
-        var cartItems = await module.exports.addProductToUsersCartBasedOnBarcode(
-          req.body.barcode,
-          cart_id,
-          req.body.store_id
-        );
+        //if more than 1 product needs to be added to the cart
+        if (req.body.barcode.length > 1) {
+          //the user has an active cart to the particular shop (or one is created), add the product to the cart
+          var cartItems = await module.exports.addProductsToUsersCartBasedOnBarcode(
+            req.body.barcode,
+            cart_id,
+            req.body.store_id
+          );
+        } else {
+          //the user has an active cart to the particular shop (or one is created), add the product to the cart
+          var cartItems = await module.exports.addProductToUsersCartBasedOnBarcode(
+            req.body.barcode[0],
+            cart_id,
+            req.body.store_id
+          );
+        }
 
         if (cartItems instanceof Error) {
           console.log(cartItems);
@@ -562,11 +616,40 @@ module.exports = {
     } else {
       const [resultSet] = queryResult;
       if (resultSet.length === 0) {
-        console.log("IM INNN");
         return new Error(500);
       } else {
         return resultSet;
       }
+    }
+  },
+
+  addProductsToUsersCartBasedOnBarcode: async (
+    barcodesArray,
+    cartId,
+    storeId
+  ) => {
+    if (barcodesArray.length === 0) {
+      return new Error(500);
+    }
+    var failed = false;
+    var products_added;
+    for (barcode in barcodesArray) {
+      var added = await module.exports.addProductToUsersCartBasedOnBarcode(
+        barcodesArray[barcode],
+        cartId,
+        storeId
+      );
+      if (added instanceof Error) {
+        failed = true;
+        break;
+      } else {
+        products_added = added;
+      }
+    }
+    if (failed) {
+      return new Error(500);
+    } else {
+      return products_added;
     }
   },
 
