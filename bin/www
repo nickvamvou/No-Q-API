@@ -1,12 +1,13 @@
 #!/usr/bin/env node
 
-// Load environment variables
-const result = require('dotenv').config();
+// Load environment variables on development
+if (process.env.NODE_ENV === 'development') {
+  const result = require('dotenv').config();
 
-if (result.error) {
-  throw result.error;
+  if (result.error) {
+    throw result.error;
+  }
 }
-
 
 /**
  * Module dependencies.

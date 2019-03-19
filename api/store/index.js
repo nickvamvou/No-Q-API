@@ -1,7 +1,9 @@
 const express = require("express");
 const router = express.Router();
 const checkAuth = require("../middleware/check-auth");
+const { dbTransactionMiddleware } = require("../middleware");
 const role = require("../user/user-role");
+
 // For multi form data - images
 const upload = require("../middleware/upload-product-photo");
 const storeController = require("./store");
@@ -85,7 +87,10 @@ router.delete(
 router.post(
   "/:storeId/itemGroups",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.createOrUpdateItemGroup
+  dbTransactionMiddleware.startDbTransaction,
+  storeController.createOrUpdateGroupedOptions,
+  storeController.createOrUpdateItemGroup,
+  dbTransactionMiddleware.endDbTransaction,
 );
 
 // Get all item groups.
@@ -99,7 +104,10 @@ router.get(
 router.patch(
   "/:storeId/itemGroups/:itemGroupId",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.createOrUpdateItemGroup
+  dbTransactionMiddleware.startDbTransaction,
+  storeController.createOrUpdateGroupedOptions,
+  storeController.createOrUpdateItemGroup,
+  dbTransactionMiddleware.endDbTransaction,
 );
 
 // Delete an item group
@@ -125,9 +133,12 @@ router.patch(
 
 // Create new product details for a product
 router.post(
-  "/:storeId/productDetails",
+  "/:storeId/itemGroups/:itemGroupId/productDetails",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.createProductDetails
+  dbTransactionMiddleware.startDbTransaction,
+  storeController.createOrUpdateGroupedOptions,
+  storeController.createProductDetails,
+  dbTransactionMiddleware.endDbTransaction,
 );
 
 // Get all scanned unpaid products
