@@ -6,8 +6,7 @@ const pool = require("../../config/db_connection");
 const role = require("../user/user-role");
 const utils = require("../utils");
 const moment = require("moment");
-const { SqlError, databaseUtil } = require('../utils');
-
+const { SqlError, databaseUtil } = require("../utils");
 
 /**
  * This class contains code describing the shop functionality.
@@ -28,13 +27,13 @@ module.exports = {
    */
   createNewStore: (req, res, next) => {
     //id of retailer to create new store
-    const retailerId = req.userData.userId;
+    const retailerId = req.userData.id;
     /*
     Checks if the requesting user is the same as the owner of the store
     to be created for or the requesting user is an admin.
      */
     var authorized = module.exports.checkAuthorizationRole(
-      req.userData.userId,
+      req.userData.id,
       req.params.userId,
       req.userData.role
     );
@@ -94,7 +93,7 @@ module.exports = {
   removeStore: (req, res, next) => {
     // Check if user is administrator
     var authorized = module.exports.checkAuthorizationRole(
-      req.userData.userId,
+      req.userData.id,
       req.params.userId,
       req.userData.role
     );
@@ -116,7 +115,7 @@ module.exports = {
   },
 
   //req.params.userId is the userId received from URL
-  //req.userData.userId is the user id added from check-auth in JWT token
+  //req.userData.id is the user id added from check-auth in JWT token
   //req.userData.role is the user role added from check-auth in JWT token
   //req.params.storeId is the store id provided by the URL
   getAllStores: (req, res, next) => {
@@ -145,7 +144,7 @@ module.exports = {
     //checks if user is authorized to access information about the store
     //authorization if store id is managed from user id
     var authorized = module.exports.checkAuthorizationRole(
-      req.userData.userId,
+      req.userData.id,
       req.params.userId,
       req.userData.role
     );
@@ -201,7 +200,7 @@ module.exports = {
    *
    */
   getStoreOrders: async (
-    { params: { storeId }, userData: { userId: userId } },
+    { params: { storeId }, userData: { id: userId } },
     res,
     next
   ) => {
@@ -249,7 +248,7 @@ module.exports = {
    *
    */
   getStoreOrder: async (
-    { params: { storeId, orderId }, userData: { userId: userId } },
+    { params: { storeId, orderId }, userData: { id: userId } },
     res,
     next
   ) => {
@@ -286,7 +285,7 @@ module.exports = {
     //checks if user is authorized to access information about the store
     module.exports
       .checkAuthorization(
-        req.userData.userId,
+        req.userData.id,
         req.userData.role,
         req.params.storeId
       )
@@ -324,7 +323,7 @@ module.exports = {
   getProductsFromStore: (req, res, next) => {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
-      req.userData.userId,
+      req.userData.id,
       req.userData.role,
       req.params.storeId
     );
@@ -334,7 +333,7 @@ module.exports = {
   addNewProduct: (req, res, next) => {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
-      req.userData.userId,
+      req.userData.id,
       req.userData.role,
       req.params.storeId
     );
@@ -356,7 +355,7 @@ module.exports = {
   removeItem: (req, res, next) => {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
-      req.userData.userId,
+      req.userData.id,
       req.userData.role,
       req.params.storeId
     );
@@ -391,7 +390,7 @@ module.exports = {
   },
   updateProduct: (req, res, next) => {
     var authorized = checkAuthorization(
-      req.userData.userId,
+      req.userData.id,
       req.userData.role,
       req.params.storeId
     );
@@ -431,7 +430,8 @@ module.exports = {
   createProductDetails: async (
     {
       body: { name, barcode, SKU, quantity, price },
-      params: { itemGroupId, storeId }, userData: { id: userId },
+      params: { itemGroupId, storeId },
+      userData: { id: userId }
     },
     res,
     next
@@ -439,18 +439,11 @@ module.exports = {
     const { dbTransactionInstance, optionIds } = res.locals;
 
     // Issue query to DB to create new details of a product along with the item group it belongs to.
-    let [ queryError, queryResult ] = await to(
-      dbTransactionInstance.query('call create_product_details(?, ?, ?, ?, ?, ?, ?, ?)', [
-        name,
-        barcode,
-        SKU,
-        quantity,
-        price,
-        itemGroupId,
-        develop
-        storeId,
-        userId
-      ])
+    let [queryError, queryResult] = await to(
+      dbTransactionInstance.query(
+        "call create_product_details(?, ?, ?, ?, ?, ?, ?, ?)",
+        [name, barcode, SKU, quantity, price, itemGroupId, storeId, userId]
+      )
     );
 
     // Forward fatal error to global error handler
@@ -464,10 +457,11 @@ module.exports = {
     const [[{ product_details_id: productDetailsId }]] = queryResult;
 
     // Issue query to DB to bulk insert option value references.
-    [ queryError ] = await to(
-      dbTransactionInstance.query(
-        'call add_or_change_product_options(?, ?)', [ productDetailsId, JSON.stringify(optionIds) ]
-      )
+    [queryError] = await to(
+      dbTransactionInstance.query("call add_or_change_product_options(?, ?)", [
+        productDetailsId,
+        JSON.stringify(optionIds)
+      ])
     );
 
     // Forward fatal error to global error handler
@@ -479,7 +473,7 @@ module.exports = {
 
     // Pass final response object to DB transaction middleware.
     res.locals.finalResponse = {
-      message: 'Product details was created',
+      message: "Product details was created",
       data: {
         id: productDetailsId
       }
@@ -511,7 +505,7 @@ module.exports = {
    *
    */
   softDelProductDetails: async (
-    { params: { productDetailsId, storeId }, userData: { userId: userId } },
+    { params: { productDetailsId, storeId }, userData: { id: userId } },
     res,
     next
   ) => {
@@ -985,7 +979,7 @@ module.exports = {
    *
    */
   getProductDetailsByItemGroup: async (
-    { params: { itemGroupId, storeId }, userData: { userId: userId } },
+    { params: { itemGroupId, storeId }, userData: { id: userId } },
     res,
     next
   ) => {
@@ -1067,28 +1061,24 @@ module.exports = {
    *
    */
   createOrUpdateItemGroup: async (
-    { body: { name, description, code, categoryId },
+    {
+      body: { name, description, code, categoryId },
       params: { storeId, itemGroupId: existingItemGroupId },
-      userData: { userId: userId }
+      userData: { id: userId }
     },
     res,
     next
   ) => {
+    console.log(userId);
     /* Every query from here on is executed within the database transaction. */
 
     const { dbTransactionInstance, optionIds } = res.locals;
 
-
-    let [ queryError, queryResult ] = await to(
-      dbTransactionInstance.query('call create_or_update_item_group(?, ?, ?, ?, ?, ?)', [
-        develop
-        existingItemGroupId,
-        name,
-        description,
-        code,
-        storeId,
-        userId
-      ])
+    let [queryError, queryResult] = await to(
+      dbTransactionInstance.query(
+        "call create_or_update_item_group(?, ?, ?, ?, ?, ?)",
+        [existingItemGroupId, name, description, code, storeId, userId]
+      )
     );
 
     // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
@@ -1106,10 +1096,10 @@ module.exports = {
     if (!existingItemGroupId) {
       // Issue query to add item group to store.
 
-      [ queryError ] = await to(
-        dbTransactionInstance.query('call add_store_item_group(?, ?)', [
+      [queryError] = await to(
+        dbTransactionInstance.query("call add_store_item_group(?, ?)", [
           itemGroupId,
-          storeId,
+          storeId
         ])
       );
 
@@ -1124,8 +1114,11 @@ module.exports = {
 
     // Add item group to a category if needed -- `categoryId` is provided.
     if (categoryId) {
-      [ queryError ] = await to(
-        dbTransactionInstance.query('call add_or_change_item_group_category(?, ?)', [ itemGroupId, categoryId ])
+      [queryError] = await to(
+        dbTransactionInstance.query(
+          "call add_or_change_item_group_category(?, ?)",
+          [itemGroupId, categoryId]
+        )
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
@@ -1138,8 +1131,11 @@ module.exports = {
     }
 
     // Add newly created option value to an item group.
-    [ queryError ] = await to(
-      dbTransactionInstance.query('call add_or_change_item_group_options(?, ?)', [ itemGroupId, JSON.stringify(optionIds) ])
+    [queryError] = await to(
+      dbTransactionInstance.query(
+        "call add_or_change_item_group_options(?, ?)",
+        [itemGroupId, JSON.stringify(optionIds)]
+      )
     );
 
     // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
@@ -1152,13 +1148,15 @@ module.exports = {
 
     // Respond with newly created `itemGroupId` and some message.
     res.locals.finalResponse = {
-      message: `Item group was successfully ${!existingItemGroupId ? 'created' : 'updated'}`,
+      message: `Item group was successfully ${
+        !existingItemGroupId ? "created" : "updated"
+      }`,
       data: {
-        id: itemGroupId,
-      },
+        id: itemGroupId
+      }
     };
 
-    next()
+    next();
   },
 
   createOrUpdateGroupedOptions: async ({ body: { options } }, res, next) => {
@@ -1169,15 +1167,16 @@ module.exports = {
     // containing mapped option values to group names.
     for (const { group, values } of options) {
       // Issue query to create new option group.
-      let [ queryError, queryResult ] = await to(
-        dbTransactionInstance.query('call create_or_update_option_group(?)', [ group ])
+      let [queryError, queryResult] = await to(
+        dbTransactionInstance.query("call create_or_update_option_group(?)", [
+          group
+        ])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
       // central error handler.
       if (queryError) {
         await dbTransactionInstance.rollbackAndReleaseConn();
-
         return next(createHttpError(new SqlError(queryError)));
       }
 
@@ -1186,8 +1185,11 @@ module.exports = {
 
       // Issue query to create option values for newly created option group.
 
-      [ queryError, queryResult ] = await to(
-        dbTransactionInstance.query('call create_or_update_options(?, ?)', [ optionGroupId, JSON.stringify(values) ])
+      [queryError, queryResult] = await to(
+        dbTransactionInstance.query("call create_or_update_options(?, ?)", [
+          optionGroupId,
+          JSON.stringify(values)
+        ])
       );
 
       // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
@@ -1198,9 +1200,9 @@ module.exports = {
         return next(createHttpError(new SqlError(queryError)));
       }
 
-      const [ [ { option_ids } ] ] = queryResult;
+      const [[{ option_ids }]] = queryResult;
 
-      optionIds = optionIds.concat(JSON.parse(option_ids))
+      optionIds = optionIds.concat(JSON.parse(option_ids));
     }
 
     res.locals.optionIds = optionIds;
@@ -1230,7 +1232,7 @@ module.exports = {
    *
    */
   softDeleteItemGroup: async (
-    { params: { itemGroupId, storeId }, userData: { userId: userId } },
+    { params: { itemGroupId, storeId }, userData: { id: userId } },
     res,
     next
   ) => {
@@ -1275,7 +1277,7 @@ module.exports = {
    *
    */
   getItemGroups: async (
-    { params: { storeId }, userData: { userId: userId } },
+    { params: { storeId }, userData: { id: userId } },
     res,
     next
   ) => {
@@ -1324,7 +1326,7 @@ module.exports = {
    *
    */
   getScannedUnpaidProducts: async (
-    { params: { storeId }, userData: { userId: userId } },
+    { params: { storeId }, userData: { id: userId } },
     res,
     next
   ) => {
@@ -1359,7 +1361,7 @@ module.exports = {
     // Check if requesting user is the same as the logged in user.
     var authorized = module.exports
       .checkAuthorizationRole(
-        req.userData.userId,
+        req.userData.id,
         req.params.userId,
         req.userData.role
       )
@@ -1449,7 +1451,7 @@ module.exports = {
     //authorization if store id is managed from user id
     var authorized = module.exports
       .checkAuthorization(
-        req.userData.userId,
+        req.userData.id,
         req.userData.role,
         req.params.storeId
       )
@@ -1542,7 +1544,7 @@ module.exports = {
     // //authorization if store id is managed from user id
     // var authorized = module.exports
     //   .checkAuthorization(
-    //     req.userData.userId,
+    //     req.userData.id,
     //     req.userData.role,
     //     req.params.storeId
     //   )
@@ -1570,7 +1572,7 @@ module.exports = {
           req.body.voucher_code,
           req.body.max_number_allowed,
           req.params.storeId,
-          req.userData.userId
+          req.userData.id
         )
         .then(voucher_details => {
           if (voucher_details instanceof Error) {
@@ -1595,7 +1597,7 @@ module.exports = {
   getVouchersFromShop: async (req, res, next) => {
     var vouchers = await module.exports.getVouchersFromShopDB(
       req.params.storeId,
-      req.userData.userId
+      req.userData.id
     );
     if (vouchers instanceof Error) {
       return res.status(500).json({
@@ -1724,7 +1726,7 @@ module.exports = {
     // //authorization if store id is managed from user id
     // var authorized = module.exports
     //   .checkAuthorization(
-    //     req.userData.userId,
+    //     req.userData.id,
     //     req.userData.role,
     //     req.params.storeId
     //   )
@@ -1737,7 +1739,7 @@ module.exports = {
         .checkVoucherExistenceAndRedeemability(
           req.params.voucherId,
           req.params.storeId,
-          req.userData.userId
+          req.userData.id
         )
         .then(async voucher_id => {
           //if its reaches in this point of the execution then we can delete the voucher from the store

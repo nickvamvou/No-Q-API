@@ -16,7 +16,7 @@ module.exports = {
   getCompletedOrder: (req, res, next) => {
     var authorized = checkAuthorization(
       req.params.userId,
-      req.userData.userId,
+      req.userData.id,
       req.userData.role,
       req.params.orderId
     );
@@ -31,7 +31,7 @@ module.exports = {
   getUserCompletedOrders: (req, res, next) => {
     var authorized = checkAuthorization(
       req.params.userId,
-      req.userData.userId,
+      req.userData.id,
       req.userData.role
     );
     if (authorized) {
@@ -147,7 +147,7 @@ module.exports = {
   //   //check for role and matching user data in URL with matching data with the token
   //   //TODO uncomment section below
   //   // var authorized = checkAuthorizationRole(
-  //   //   req.userData.userId,
+  //   //   req.userData.id,
   //   //   req.params.userId,
   //   //   req.userData.role
   //   // );
@@ -178,7 +178,7 @@ module.exports = {
     //check for role and matching user data in URL with matching data with the token
     //TODO uncomment section below
     // var authorized = checkAuthorizationRole(
-    //   req.userData.userId,
+    //   req.userData.id,
     //   req.params.userId,
     //   req.userData.role
     // );
@@ -802,7 +802,7 @@ module.exports = {
   removeProductFromCart: async (req, res, next) => {
     // //check for role and matching user data in URL with matching data with the token
     // var authorized = checkAuthorizationRole(
-    //   req.userData.userId,
+    //   req.userData.id,
     //   req.params.userId,
     //   req.userData.role
     // );
@@ -911,7 +911,7 @@ module.exports = {
       voucher[0].coupon_id,
       voucher[0].store_id,
       req.body.cart_id,
-      req.userData.userId
+      req.userData.id
     );
 
     if (added instanceof Error) {

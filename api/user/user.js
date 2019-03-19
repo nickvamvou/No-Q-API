@@ -235,8 +235,9 @@ module.exports = {
   createRefreshToken: async (req, res, next) => {
     const { userId, role } = res.locals;
 
-    const [ error, token ] = await to(auth.createRefreshToken({ id: userId, role }));
-
+    const [error, token] = await to(
+      auth.createRefreshToken({ id: userId, role })
+    );
 
     if (error) {
       return next(createHttpError(error));
@@ -249,7 +250,9 @@ module.exports = {
 
   createAccessToken: async (req, res, next) => {
     const { userId, role } = res.locals;
-    const [ error, token ] = await to(auth.createAccessToken({ id: userId, role }));
+    const [error, token] = await to(
+      auth.createAccessToken({ id: userId, role })
+    );
     if (error) {
       return next(createHttpError(error));
     }
@@ -375,7 +378,7 @@ module.exports = {
   updateUserDetails: async (req, res, next) => {
     // var authorized = module.exports.checkAuthorization(
     //   req.params.userId,
-    //   req.userData.userId,
+    //   req.userData.id,
     //   req.userData.role
     // );
 
@@ -417,7 +420,7 @@ module.exports = {
     //check that the user has access to the vouchers he/she is requesting
     // var authorized = module.exports.checkAuthorization(
     //   req.params.userId,
-    //   req.userData.userId,
+    //   req.userData.id,
     //   req.userData.role
     // );
     authorized = true;
@@ -469,7 +472,7 @@ module.exports = {
     //checking that the user that wants to change the password has authorization
     var authorized = module.exports.checkAuthorization(
       req.params.userId,
-      req.userData.userId,
+      req.userData.id,
       req.userData.role
     );
     //users must provide their old passwords
@@ -582,13 +585,13 @@ module.exports = {
     //delete the particular user from db
     var authorized = module.exports.checkAuthorization(
       req.params.userId,
-      req.userData.userId,
+      req.userData.id,
       req.userData.role
     );
 
     if (authorized) {
       var sql = "CALL delete_user_by_id(?)";
-      var id = req.userData.userId;
+      var id = req.userData.id;
       pool.query(sql, id, (err, result) => {
         if (err) {
           //user not found
@@ -623,7 +626,7 @@ module.exports = {
   getUserDetails: async (req, res, next) => {
     // var authorized = module.exports.checkAuthorization(
     //   req.params.userId,
-    //   req.userData.userId,
+    //   req.userData.id,
     //   req.userData.role
     // );
     var authorized = true;
@@ -862,6 +865,7 @@ module.exports = {
 
     if (voucherDetails instanceof Error) {
       console.log("error");
+
       return res.status(500).json({
         message: "DB error or voucher is not redeembale"
       });
@@ -1045,35 +1049,6 @@ module.exports = {
     }));
   },
 
-  checkIfVoucherIsRedeemable: async voucherCode => {
-    var getVoucherIdAndReedemable =
-      "CALL get_voucher_reedemable_and_id_and_people_using(?)";
-    return (cart_id = await new Promise((res, rej) => {
-      pool.query(getVoucherIdAndReedemable, [voucherCode], (err, result) => {
-        if (err) {
-          return rej(err);
-        } else {
-          console.log(result[0]);
-          //wrong voucher code
-          if (result[0].length === 0) {
-            return rej(1);
-          }
-          //reedemable is null
-          if (result[0][0].reedemable === null) {
-            return rej(2);
-          } //its is not redeemable
-          if (result[0][0].reedemable.includes(0o00)) {
-            return rej(3);
-          }
-          //its redeemable
-          else {
-            return res(result[0][0]);
-          }
-        }
-      });
-    }));
-  },
-
   getVouchersFromUser: async userId => {
     var getUserVouchers = "CALL get_user_vouchers(?)";
     return await new Promise((res, rej) => {
@@ -1113,6 +1088,7 @@ module.exports = {
   },
 
   checkIfVoucherIsRedeemable: async voucherCode => {
+    console.log(voucherCode);
     var getVoucherInformation =
       "CALL get_voucher_information_by_voucher_code(?)";
 
@@ -1126,7 +1102,7 @@ module.exports = {
     }
 
     const [resultSet] = queryResult;
-
+    console.log(queryResult);
     console.log(resultSet);
     //could not find the coupon being searched
     if (resultSet.length === 0) {
