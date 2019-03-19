@@ -5,6 +5,10 @@ const orderController = require("./shopping_cart");
 const checkAuth = require("../middleware/check-auth");
 const role = require("../user/user-role");
 
+router.get(
+  "/:storeId/product/:barcode",
+  orderController.getProductInformationBasedOnBarcode
+);
 //add product to user shopping cart
 // TODO REMOVE COMMEN IN LINE 12
 router.post(
@@ -18,7 +22,7 @@ router.post(
 router.delete(
   "/:userId/remove",
   // checkAuth.userAuth([role.SHOPPER]),
-  orderController.removeProductFromCart
+  orderController.removeProductFromCartByBarcode
 );
 
 router.post(
@@ -29,7 +33,18 @@ router.post(
 
 //add product to user shopping cart
 
-router.post("/:userId/addVoucher", orderController.addVoucherToCart);
+router.post(
+  "/:userId/addVoucher",
+  checkAuth.userAuth([role.SHOPPER]),
+  orderController.addVoucherToCart
+);
+
+//TODO checking of whether the user owns the cart
+router.delete(
+  "/:userId/deleteVoucher",
+  checkAuth.userAuth([role.SHOPPER]),
+  orderController.deleteVoucherFromCart
+);
 
 //Needs modification
 //this endpoint is called from doors and must be kept private

@@ -191,19 +191,24 @@ router.post(
   storeController.doorLogin
 );
 
+router.get(
+  "/:storeId/vouchers",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.getVouchersFromShop
+);
+
 //TODO uncomment line 116 (authorization)
 router.post(
   "/:storeId/vouchers/addVoucher",
-  // checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
   storeController.addVoucherToShop
 );
 
 //TODO uncomment line 116 (authorization)
 router.delete(
   "/:storeId/vouchers/:voucherId/delete",
-  // checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
   storeController.deleteVoucherFromShop
 );
-
 
 module.exports = router;

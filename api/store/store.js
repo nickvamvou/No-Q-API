@@ -1,9 +1,11 @@
-const to = require('await-to-js').default;
+const to = require("await-to-js").default;
 const createHttpError = require("http-errors");
 const fs = require("fs");
-
+const util = require("util");
 const pool = require("../../config/db_connection");
 const role = require("../user/user-role");
+const utils = require("../utils");
+const moment = require("moment");
 const { SqlError, databaseUtil } = require('../utils');
 
 
@@ -26,13 +28,13 @@ module.exports = {
    */
   createNewStore: (req, res, next) => {
     //id of retailer to create new store
-    const retailerId = req.userData.id;
+    const retailerId = req.userData.userId;
     /*
     Checks if the requesting user is the same as the owner of the store
     to be created for or the requesting user is an admin.
      */
     var authorized = module.exports.checkAuthorizationRole(
-      req.userData.id,
+      req.userData.userId,
       req.params.userId,
       req.userData.role
     );
@@ -92,7 +94,7 @@ module.exports = {
   removeStore: (req, res, next) => {
     // Check if user is administrator
     var authorized = module.exports.checkAuthorizationRole(
-      req.userData.id,
+      req.userData.userId,
       req.params.userId,
       req.userData.role
     );
@@ -114,7 +116,7 @@ module.exports = {
   },
 
   //req.params.userId is the userId received from URL
-  //req.userData.id is the user id added from check-auth in JWT token
+  //req.userData.userId is the user id added from check-auth in JWT token
   //req.userData.role is the user role added from check-auth in JWT token
   //req.params.storeId is the store id provided by the URL
   getAllStores: (req, res, next) => {
@@ -143,7 +145,7 @@ module.exports = {
     //checks if user is authorized to access information about the store
     //authorization if store id is managed from user id
     var authorized = module.exports.checkAuthorizationRole(
-      req.userData.id,
+      req.userData.userId,
       req.params.userId,
       req.userData.role
     );
@@ -198,10 +200,17 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getStoreOrders: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
+  getStoreOrders: async (
+    { params: { storeId }, userData: { userId: userId } },
+    res,
+    next
+  ) => {
     // Issue query to get all orders in a store.
-    let [ queryError, queryResult ] = await to(
-      pool.promiseQuery('call get_all_purchases_in_store(?, ?)', [ storeId, userId ])
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_all_purchases_in_store(?, ?)", [
+        storeId,
+        userId
+      ])
     );
 
     // Forward query error to central error handler.
@@ -210,11 +219,11 @@ module.exports = {
     }
 
     // Get items groups from query result.
-    const [ orders ] = queryResult;
+    const [orders] = queryResult;
 
     // Respond with list of all item groups.
     res.json({
-      data: orders,
+      data: orders
     });
   },
 
@@ -239,10 +248,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getStoreOrder: async ({ params: { storeId, orderId }, userData: { id: userId } }, res, next) => {
+  getStoreOrder: async (
+    { params: { storeId, orderId }, userData: { userId: userId } },
+    res,
+    next
+  ) => {
     // Issue query to get details of an order.
-    let [ queryError, queryResult ] = await to(
-      pool.promiseQuery('call get_details_of_previous_purchase(?, ?, ?)', [ storeId, orderId, userId ])
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_details_of_previous_purchase(?, ?, ?)", [
+        storeId,
+        orderId,
+        userId
+      ])
     );
 
     // Forward query error to central error handler.
@@ -251,16 +268,16 @@ module.exports = {
     }
 
     // Get items groups from query result.
-    const [ [ order ] ] = queryResult;
+    const [[order]] = queryResult;
 
     // Order not found? Send down a 404 error.
     if (!order) {
-      return next(createHttpError(404, 'Order not found'))
+      return next(createHttpError(404, "Order not found"));
     }
 
     // Return order
     res.json({
-      data: order,
+      data: order
     });
   },
 
@@ -269,7 +286,7 @@ module.exports = {
     //checks if user is authorized to access information about the store
     module.exports
       .checkAuthorization(
-        req.userData.id,
+        req.userData.userId,
         req.userData.role,
         req.params.storeId
       )
@@ -307,7 +324,7 @@ module.exports = {
   getProductsFromStore: (req, res, next) => {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
-      req.userData.id,
+      req.userData.userId,
       req.userData.role,
       req.params.storeId
     );
@@ -317,7 +334,7 @@ module.exports = {
   addNewProduct: (req, res, next) => {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
-      req.userData.id,
+      req.userData.userId,
       req.userData.role,
       req.params.storeId
     );
@@ -339,7 +356,7 @@ module.exports = {
   removeItem: (req, res, next) => {
     //checks if user is authorized to access information about the store
     var authorized = checkAuthorization(
-      req.userData.id,
+      req.userData.userId,
       req.userData.role,
       req.params.storeId
     );
@@ -374,7 +391,7 @@ module.exports = {
   },
   updateProduct: (req, res, next) => {
     var authorized = checkAuthorization(
-      req.userData.id,
+      req.userData.userId,
       req.userData.role,
       req.params.storeId
     );
@@ -430,8 +447,9 @@ module.exports = {
         quantity,
         price,
         itemGroupId,
+        develop
         storeId,
-        userId,
+        userId
       ])
     );
 
@@ -443,7 +461,7 @@ module.exports = {
     }
 
     // Retrieve actual result set from query result
-    const [ [ { product_details_id: productDetailsId } ] ] = queryResult;
+    const [[{ product_details_id: productDetailsId }]] = queryResult;
 
     // Issue query to DB to bulk insert option value references.
     [ queryError ] = await to(
@@ -463,7 +481,7 @@ module.exports = {
     res.locals.finalResponse = {
       message: 'Product details was created',
       data: {
-        id: productDetailsId,
+        id: productDetailsId
       }
     };
 
@@ -492,10 +510,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  softDelProductDetails: async ({ params: { productDetailsId, storeId }, userData: { id: userId } }, res, next) => {
+  softDelProductDetails: async (
+    { params: { productDetailsId, storeId }, userData: { userId: userId } },
+    res,
+    next
+  ) => {
     // Issue query flag product details as deleted.
-    let [ queryError ] = await to(
-      pool.promiseQuery('call update_product_details_as_deleted(?, ?, ?)', [ productDetailsId, storeId, userId ])
+    let [queryError] = await to(
+      pool.promiseQuery("call update_product_details_as_deleted(?, ?, ?)", [
+        productDetailsId,
+        storeId,
+        userId
+      ])
     );
 
     // Forward query error to central error handler.
@@ -516,8 +542,10 @@ module.exports = {
    */
   getAllProductDetails: async (req, res, next) => {
     // Issue query to get all product details in a store/shop
-    const [queryError, queryResult] =  await to(
-      pool.promiseQuery('CALL get_all_product_details_by_store_id(?)', [req.params.storeId])
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery("CALL get_all_product_details_by_store_id(?)", [
+        req.params.storeId
+      ])
     );
 
     // Forward fatal error to global error handler
@@ -539,13 +567,17 @@ module.exports = {
    * @param res - express response object
    * @param next - function that forwards processes to the next express handler or middleware
    */
-  getProductDetails: async ({ params: { productDetailsId, storeId }, userData }, res, next) => {
+  getProductDetails: async (
+    { params: { productDetailsId, storeId }, userData },
+    res,
+    next
+  ) => {
     // Issue query to get details of a product in a store
     const [queryError, queryResult] = await to(
-      pool.promiseQuery('CALL get_product_details_by_id(?, ?, ?)', [
+      pool.promiseQuery("CALL get_product_details_by_id(?, ?, ?)", [
         productDetailsId,
         storeId,
-        userData.id,
+        userData.id
       ])
     );
 
@@ -559,13 +591,376 @@ module.exports = {
 
     // Return 404 if the requested product details was not found
     if (!resultSet.length) {
-      return next(createHttpError(
-        404, 'Product details was not found'
-      ));
+      return next(createHttpError(404, "Product details was not found"));
     }
 
     // Dish out final result :)
-    res.status(200).json(resultSet[0])
+    res.status(200).json(resultSet[0]);
+  },
+
+  /**
+   * Endpoint: `GET store/:storeId/itemGroups/:itemGroupId/products`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler retrieves all specific details of a product
+   * for a particular item group.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting product details from the database,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `itemGroupId` [Number] - `id` of the item group
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getProductDetailsByItemGroup: async (
+    { params: { itemGroupId } },
+    res,
+    next
+  ) => {
+    // Issue query to get details of a product in a store
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery("CALL get_product_details_by_item_group_id(?)", [
+        itemGroupId
+      ])
+    );
+
+    // Forward fatal error to global error handler
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Retrieve actual result set from query result
+    const [productDetails] = queryResult;
+
+    // Dish out final result :)
+    res.json({
+      data: productDetails
+    });
+  },
+
+  /**
+   *
+   * Endpoints: [`POST store/:storeId/itemGroups`, `PATCH store/:storeId/itemGroups/:itemGroupId`]
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler creates or updates an item group -- e.g a for a shirt that comes in different colors and
+   * sizes, then adds item group to a category if a `categoryId` is provided, creates option groups and corresponding
+   * values, and finally adds each created option value to the item group. This sequence of operations is enveloped in
+   * a database transaction for better management :)
+   *
+   * If all goes well, Retailer gets id of newly created item group to be used for further actions.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting a connection from the pool, forward error to central error handler.
+   *
+   * - If error occurs while starting a transaction, forward error to central error handler.
+   *
+   * - If error occurs while executing any of the queries within the context of the DB transaction,
+   *   rollback DB surface changes made so far, release connection, and forward error to central error handler.
+   *
+   * - If error occurs while committing changes so far to database, rollback all the surface changes.
+   *
+   *
+   * @param `name` [String] - Name of the item group.
+   * @param `description` [String] = Description of the item group, providing more context.
+   * @param `code` [String] - Unique code assigned to item group.
+   * @param `categoryId` [Number] - `id` of the category the item group should belong to -- e.g Electronics.
+   * @param `optionGroups` [Array] - A list of grouped option values by name.
+   * @param `storeId` [Number] - `id` of the store where item group will be created.
+   * @param `itemGroupId` [Number] - Only required for updating an item group.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   *
+   * TODO: Abstract database transaction code into a DatabaseTransaction class that can be reused.
+   *
+   * TODO: --- Find a good alternative to nested for loops for creating option groups and associated values. ---
+   * TODO: --- Potential mild performance bottleneck here. ---
+   *
+   * TODO: DRY up the block of code handling database query errors! Code becomes bloated when using DB transactions.
+   *
+   * TODO: --- Consider splitting up this endpoint handler into maybe 2 handlers that can be used on the same route;
+   *   ---
+   * TODO: --- controller/handler chaining. Express makes this seamless and clean! It might be cleaner ---
+   * TODO: --- to have a dedicated endpoint for adding option groups and values to an item group. Something like
+   * TODO: --- `/store/:storeId/itemGroups/:itemGroupId/options` -- GET and POST. It'll be easier to auto test!
+   *
+   * TODO: Is there a better data structure to represent option groups and corresponding values?
+   *
+   */
+  createOrUpdateItemGroup: async (
+    {
+      body: { name, description, code, categoryId, optionGroups },
+      params: { storeId, itemGroupId: existingItemGroupId }
+    },
+    res,
+    next
+  ) => {
+    // Transactions need to maintain changes made across sequence of actions -- the state of every query.
+    // Thus, the need for a single connection instance.
+    // Grab a free connection instance for the connection pool.
+    const [connErr, conn] = await to(pool.getConnection());
+
+    // Forward `connErr` to central error handler
+    if (connErr) {
+      return next(createHttpError(connErr));
+    }
+
+    // Create promise-based transaction functions.
+    const beginTransaction = util.promisify(conn.beginTransaction).bind(conn);
+    const query = util.promisify(conn.query).bind(conn);
+    const rollback = util.promisify(conn.rollback).bind(conn);
+    const commit = util.promisify(conn.commit).bind(conn);
+
+    // Begin new database transaction.
+    const [beginTransErr] = await to(beginTransaction());
+
+    // Error starting database transaction. Forward error!
+    if (beginTransErr) {
+      return next(createHttpError(beginTransErr));
+    }
+
+    /* Every query from here on is executed within the database transaction. */
+
+    // Issue query to create new item group.
+    let [queryError, queryResult] = await to(
+      query("call create_or_update_item_group(?, ?, ?, ?)", [
+        existingItemGroupId,
+        name,
+        description,
+        code
+      ])
+    );
+
+    // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
+    // error handler.
+    if (queryError) {
+      await rollback();
+      conn.release();
+
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get `itemGroupId` from query result.
+    const [[{ item_group_id: itemGroupId }]] = queryResult;
+
+    // Only add new item group to store.
+    if (!existingItemGroupId) {
+      // Issue query to add item group to store.
+      [queryError] = await to(
+        query("call add_store_item_group(?, ?)", [itemGroupId, storeId])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to central
+      // error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+    }
+
+    // Add item group to a category if needed -- `categoryId` is provided.
+    if (categoryId) {
+      [queryError] = await to(
+        query("call add_or_change_item_group_category(?, ?)", [
+          itemGroupId,
+          categoryId
+        ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+    }
+
+    // Create option groups and values for created item group. Starts by going over `optionGroups` list/array
+    // containing mapped option values to group names.
+    for (const {
+      id: existingOptionGroupId,
+      name: optionGroupName,
+      options
+    } of optionGroups) {
+      // Issue query to create new option group.
+      [queryError, queryResult] = await to(
+        query("call create_or_update_option_group(?, ?)", [
+          existingOptionGroupId,
+          optionGroupName
+        ])
+      );
+
+      // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+      // central error handler.
+      if (queryError) {
+        await rollback();
+        conn.release();
+
+        return next(createHttpError(new SqlError(queryError)));
+      }
+
+      // Get `optionGroupId` from query result for next query.
+      const [[{ option_group_id: optionGroupId }]] = queryResult;
+
+      // Slap on values to the newly created option group.
+      for (const { id: existingOptionId, name: optionName } of options) {
+        // Issue query to create option values for newly created option group.
+        let [queryError, queryResult] = await to(
+          query("call create_or_update_option(?, ?, ?)", [
+            existingOptionId,
+            optionGroupId,
+            optionName
+          ])
+        );
+
+        // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+        // central error handler.
+        if (queryError) {
+          console.log(queryError);
+          await rollback();
+          conn.release();
+
+          return next(createHttpError(new SqlError(queryError)));
+        }
+
+        // Get `optionId` from query result for next query.
+        const [[{ option_id: optionId }]] = queryResult;
+
+        // Add newly created option value to an item group.
+        [queryError] = await to(
+          query("call add_or_change_item_group_option(?, ?)", [
+            itemGroupId,
+            optionId
+          ])
+        );
+
+        // Rollback DB ops(queries) so far, put connection back in pool -- release it!, and forward query error to
+        // central error handler.
+        if (queryError) {
+          await rollback();
+          conn.release();
+
+          return next(createHttpError(new SqlError(queryError)));
+        }
+      }
+    }
+
+    // Make database changes so far persistent. Commit it!
+    const [commitErr] = await to(commit());
+
+    // If error occurs while persisting changes, rollback!
+    if (commitErr) {
+      await rollback();
+    }
+
+    // Finally, DB connection has served its purpose. Release it back into the pool.
+    conn.release();
+
+    // Respond with newly created `itemGroupId` and some message.
+    res.json({
+      message: `Item group was successfully ${
+        !existingItemGroupId ? "created" : "updated"
+      }`,
+      data: {
+        id: itemGroupId
+      }
+    });
+  },
+
+  /**
+   * Endpoint: `GET store/:storeId/itemGroups`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler gets all item groups for a particular store along with the number of
+   * associated `product details` for each item group.
+   *
+   * If all goes well, Retailer gets a list/array of all item groups with each item containing the;
+   * group `name`, `item_code`, and `product_details_count`.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting item groups from DB, forward error to central error handler.
+   *
+   *
+   * @param `req` [Object] - Express's HTTP request object.
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getAllItemGroups: async (req, res, next) => {
+    // Issue query to get all item groups.
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_all_item_groups")
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get items groups from query result.
+    const [itemGroups] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json({
+      data: itemGroups
+    });
+  },
+
+  /**
+   *
+   * Endpoint: `GET store/:storeId/scannedUnpaidProducts`
+   * Primary actors: [ Retailer ]
+   * Secondary actors: None
+   *
+   *
+   * This endpoint handler gets all scanned products that hasn't been paid for
+   * in a store, along with user info, item group info and other related info.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting scanned unpaid item from DB,
+   *   halt process and forward error to central error handler.
+   *
+   *
+   * @param `storeId` [Object] - Resource identity number of the store to get scanned unpaid items from.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
+   */
+  getScannedUnpaidProducts: async ({ params: { storeId } }, res, next) => {
+    // Issue query to get all scanned unpaid products.
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_current_scanned_items(?)", [storeId])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get returned products from query result.
+    const [data] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json({ data });
   },
 
   /**
@@ -589,10 +984,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getProductDetailsByItemGroup: async ({ params: { itemGroupId, storeId }, userData: { id: userId } }, res, next) => {
+  getProductDetailsByItemGroup: async (
+    { params: { itemGroupId, storeId }, userData: { userId: userId } },
+    res,
+    next
+  ) => {
     // Issue query to get details of a product in a store
     const [queryError, queryResult] = await to(
-      pool.promiseQuery('CALL get_product_details_by_item_group_id(?, ?, ?)', [ storeId, userId, itemGroupId ])
+      pool.promiseQuery("CALL get_product_details_by_item_group_id(?, ?, ?)", [
+        storeId,
+        userId,
+        itemGroupId
+      ])
     );
 
     // Forward fatal error to global error handler
@@ -605,8 +1008,8 @@ module.exports = {
 
     // Dish out final result :)
     res.json({
-      data: productDetails,
-    })
+      data: productDetails
+    });
   },
 
   /**
@@ -666,22 +1069,25 @@ module.exports = {
   createOrUpdateItemGroup: async (
     { body: { name, description, code, categoryId },
       params: { storeId, itemGroupId: existingItemGroupId },
-      userData: { id: userId }
-    }, res, next
+      userData: { userId: userId }
+    },
+    res,
+    next
   ) => {
     /* Every query from here on is executed within the database transaction. */
 
     const { dbTransactionInstance, optionIds } = res.locals;
 
-    // Issue query to create new item group.
+
     let [ queryError, queryResult ] = await to(
       dbTransactionInstance.query('call create_or_update_item_group(?, ?, ?, ?, ?, ?)', [
+        develop
         existingItemGroupId,
         name,
         description,
         code,
         storeId,
-        userId,
+        userId
       ])
     );
 
@@ -694,11 +1100,12 @@ module.exports = {
     }
 
     // Get `itemGroupId` from query result.
-    const [ [ { item_group_id: itemGroupId } ] ] = queryResult;
+    const [[{ item_group_id: itemGroupId }]] = queryResult;
 
     // Only add new item group to store.
     if (!existingItemGroupId) {
       // Issue query to add item group to store.
+
       [ queryError ] = await to(
         dbTransactionInstance.query('call add_store_item_group(?, ?)', [
           itemGroupId,
@@ -775,9 +1182,10 @@ module.exports = {
       }
 
       // Get `optionGroupId` from query result for next query.
-      const [ [ { option_group_id: optionGroupId } ] ] = queryResult;
+      const [[{ option_group_id: optionGroupId }]] = queryResult;
 
       // Issue query to create option values for newly created option group.
+
       [ queryError, queryResult ] = await to(
         dbTransactionInstance.query('call create_or_update_options(?, ?)', [ optionGroupId, JSON.stringify(values) ])
       );
@@ -790,14 +1198,12 @@ module.exports = {
         return next(createHttpError(new SqlError(queryError)));
       }
 
-      // Get `optionId`s of options created or updated from query result.
       const [ [ { option_ids } ] ] = queryResult;
 
       optionIds = optionIds.concat(JSON.parse(option_ids))
     }
 
     res.locals.optionIds = optionIds;
-
     next();
   },
 
@@ -823,10 +1229,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  softDeleteItemGroup: async ({ params: { itemGroupId, storeId }, userData: { id: userId } }, res, next) => {
+  softDeleteItemGroup: async (
+    { params: { itemGroupId, storeId }, userData: { userId: userId } },
+    res,
+    next
+  ) => {
     // Issue query flag item group as deleted.
-    let [ queryError ] = await to(
-      pool.promiseQuery('call update_item_group_as_deleted(?, ?, ?)', [ itemGroupId, storeId, userId ])
+    let [queryError] = await to(
+      pool.promiseQuery("call update_item_group_as_deleted(?, ?, ?)", [
+        itemGroupId,
+        storeId,
+        userId
+      ])
     );
 
     // Forward query error to central error handler.
@@ -860,9 +1274,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getItemGroups: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
+  getItemGroups: async (
+    { params: { storeId }, userData: { userId: userId } },
+    res,
+    next
+  ) => {
     // Issue query to get all item groups.
-    let [queryError, queryResult] = await to(pool.promiseQuery('call get_item_groups_by_store_id(?, ?)', [ storeId, userId ]));
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_item_groups_by_store_id(?, ?)", [
+        storeId,
+        userId
+      ])
+    );
 
     // Forward query error to central error handler.
     if (queryError) {
@@ -874,7 +1297,7 @@ module.exports = {
 
     // Respond with list of all item groups.
     res.json({
-      data: itemGroups,
+      data: itemGroups
     });
   },
 
@@ -900,9 +1323,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getScannedUnpaidProducts: async ({ params: { storeId }, userData: { id: userId } }, res, next) => {
+  getScannedUnpaidProducts: async (
+    { params: { storeId }, userData: { userId: userId } },
+    res,
+    next
+  ) => {
     // Issue query to get all scanned unpaid products.
-    let [ queryError, queryResult ] = await to(pool.promiseQuery('call get_current_scanned_items(?, ?)', [ storeId, userId ]));
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_current_scanned_items(?, ?)", [
+        storeId,
+        userId
+      ])
+    );
 
     // Forward query error to central error handler.
     if (queryError) {
@@ -910,7 +1342,7 @@ module.exports = {
     }
 
     // Get returned products from query result.
-    const [ data ] = queryResult;
+    const [data] = queryResult;
 
     // Respond with list of all item groups.
     res.json({ data });
@@ -927,7 +1359,7 @@ module.exports = {
     // Check if requesting user is the same as the logged in user.
     var authorized = module.exports
       .checkAuthorizationRole(
-        req.userData.id,
+        req.userData.userId,
         req.params.userId,
         req.userData.role
       )
@@ -1017,7 +1449,7 @@ module.exports = {
     //authorization if store id is managed from user id
     var authorized = module.exports
       .checkAuthorization(
-        req.userData.id,
+        req.userData.userId,
         req.userData.role,
         req.params.storeId
       )
@@ -1095,8 +1527,10 @@ module.exports = {
    *
    * @method addVoucherToShop
    * @param isPercentage (boolean to indicate if the voucher is a fixed price or percentage)
-   * @param percentage (percentage of discount)
-   * @param fixed (fixed value of money - if is percentage is False)
+   * @param value (percentage of discount)
+   * @param creation_date (date the coupon starts)
+   * @param end_date (date the coupon expires)
+   * @param voucher_code (code provided by the retailer)
    * @return Whether the voucher was added to DB and the details of the voucher
    * @throws Error (500) System Failure.
              Error (500) Voucher could not be added.
@@ -1108,40 +1542,168 @@ module.exports = {
     // //authorization if store id is managed from user id
     // var authorized = module.exports
     //   .checkAuthorization(
-    //     req.userData.id,
+    //     req.userData.userId,
     //     req.userData.role,
     //     req.params.storeId
     //   )
 
     var authorized = true;
 
+    console.log(req.params.storeId);
     if (authorized) {
-      //create the voucher code
-      let voucherCode = module.exports.generateVoucherCode();
+      let voucherCode;
+
+      let percentage;
+
+      if (req.body.isPercentage) {
+        percentage = 1;
+      } else {
+        percentage = 0;
+      }
+
       var result = await module.exports
         .addVoucherToShopDB(
-          req.body.percentage,
-          req.body.isPercentage,
+          req.body.value,
+          percentage,
+          req.body.start_date,
+          req.body.end_date,
+          req.body.voucher_code,
+          req.body.max_number_allowed,
           req.params.storeId,
-          voucherCode
+          req.userData.userId
         )
         .then(voucher_details => {
-          return res.status(200).json({
-            message: "Voucher Added",
-            voucher: voucher_details
-          });
-        })
-        .catch(err => {
-          console.log(err);
-          return res.status(500).json({
-            message: "Error with DB connection when trying to add voucher"
-          });
+          if (voucher_details instanceof Error) {
+            return res.status(500).json({
+              message: "Error with DB connection when trying to add voucher"
+            });
+          } else {
+            return res.status(200).json({
+              message: "Voucher Added",
+              voucher: voucher_details
+            });
+          }
         });
     } else {
       return res.status(401).json({
         message: "Authentication failed, user has no access in this store"
       });
     }
+  },
+
+  //gets the vouchers of a particular shop based on the shop id
+  getVouchersFromShop: async (req, res, next) => {
+    var vouchers = await module.exports.getVouchersFromShopDB(
+      req.params.storeId,
+      req.userData.userId
+    );
+    if (vouchers instanceof Error) {
+      return res.status(500).json({
+        message: "Vouchers could not be retrieved for the particular shop"
+      });
+    }
+
+    return res.status(200).json({
+      message: "Vouchers retrieved",
+      vouchers: vouchers
+    });
+  },
+
+  //based on store id, the particular function retrieves all vouchers - voucher information found in this store.
+  getVouchersFromShopDB: async (store_id, retailer_id) => {
+    const getCouponsFromDBProcedure = "CALL get_coupons_by_store_id(?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(getCouponsFromDBProcedure, [store_id, retailer_id])
+    );
+    //get any possible error
+    if (queryError) {
+      console.log(queryError);
+      return queryError;
+    }
+
+    const [resultSet] = queryResult;
+    if (resultSet.length === 0) {
+      return [];
+    }
+    const [{ valid_from }] = resultSet;
+    const [{ coupon_id }] = resultSet;
+
+    console.log("Hello");
+    console.log(
+      moment(new Date(valid_from))
+        .format("YYYY-MM-DD")
+        .toString()
+    );
+    module.exports.filterRedeemableVouchers(resultSet);
+    return resultSet;
+  },
+
+  //takes all the vouchers of a particular shop and decides which ones are redeemable and updates
+  //the redeemable value of the particular voucher
+  filterRedeemableVouchers: vouchersArray => {
+    for (voucher in vouchersArray) {
+      // var voucher = vouchersArray[voucher];
+      console.log("st");
+      console.log(vouchersArray[voucher]);
+      console.log("fin");
+      // const [
+      //   {
+      //     is_redeem_allowed,
+      //     number_of_usage,
+      //     max_number_allowed,
+      //     valid_from,
+      //     valid_until
+      //   }
+      // ] = voucher;
+      //check if its not redeemable
+      if (
+        vouchersArray[voucher].is_redeem_allowed.includes(00) ||
+        !module.exports.canBeUsedBasedOnNumberOfPeople(
+          vouchersArray[voucher].number_of_usage,
+          vouchersArray[voucher].max_number_allowed
+        ) ||
+        !module.exports.voucherDatesAreGood(
+          vouchersArray[voucher].valid_from,
+          vouchersArray[voucher].valid_until
+        )
+      ) {
+        var not_redeemable = {
+          type: "Buffer",
+          data: [0]
+        };
+        vouchersArray[voucher].is_redeem_allowed = not_redeemable;
+      }
+    }
+  },
+
+  //Receives voucher starting, expiring date and checks whether the user can add it to the cart
+  voucherDatesAreGood: (voucher_start_date, voucher_end_date) => {
+    let current_date = moment(new Date()).format("YYYY/MM/DD");
+    let voucher_start_date_final = moment(new Date(voucher_start_date)).format(
+      "YYYY/MM/DD"
+    );
+    let voucher_end_date_final = moment(new Date(voucher_end_date)).format(
+      "YYYY/MM/DD"
+    );
+
+    if (
+      current_date >= voucher_end_date_final ||
+      current_date < voucher_start_date_final
+    ) {
+      return false;
+    } else {
+      return true;
+    }
+
+    // console.log(mydate.toDateString());
+  },
+
+  canBeUsedBasedOnNumberOfPeople: (numberUsingVoucher, maxNumberAllowed) => {
+    if (numberUsingVoucher >= maxNumberAllowed) {
+      return false;
+    }
+    return true;
   },
 
   /**
@@ -1162,7 +1724,7 @@ module.exports = {
     // //authorization if store id is managed from user id
     // var authorized = module.exports
     //   .checkAuthorization(
-    //     req.userData.id,
+    //     req.userData.userId,
     //     req.userData.role,
     //     req.params.storeId
     //   )
@@ -1174,7 +1736,8 @@ module.exports = {
       await module.exports
         .checkVoucherExistenceAndRedeemability(
           req.params.voucherId,
-          req.params.storeId
+          req.params.storeId,
+          req.userData.userId
         )
         .then(async voucher_id => {
           //if its reaches in this point of the execution then we can delete the voucher from the store
@@ -1314,61 +1877,115 @@ module.exports = {
     return r;
   },
 
-  addVoucherToShopDB: async (value, isPercentage, shopId, couponCode) => {
-    //if its percentage add based on percentage
+  //This method accepts the details of a voucher to be created. If the retailer has
+  //aslready provided a voucher code it uses the particular code
+  //if the retailer did not specify a code the funciton uses recursion to Find
+  //a new code in order to input it in the DB.
+  addVoucherToShopDB: async (
+    value,
+    isPercentage,
+    startDate,
+    endDate,
+    couponCode,
+    max_number_allowed,
+    storeId,
+    retailer_id
+  ) => {
+    let voucherCode;
+    //if retailer did not provide a voucher code generate a unique code
+    if (couponCode.length === 0) {
+      voucherCode = module.exports.generateVoucherCode();
+    } else {
+      voucherCode = couponCode;
+    }
 
-    var addPercentageVoucher = "CALL add_voucher_to_shop(?, ?, ?, ?)";
-    return (voucher_details = await new Promise((res, rej) => {
-      pool.query(
-        addPercentageVoucher,
-        [shopId, value, couponCode, isPercentage],
-        (err, result) => {
-          console.log("checker");
-          if (err) {
-            //if there is already a voucher with the same code repeat the addition with different code
-            if (err.errno == 1062) {
-              couponCode = module.exports.generateVoucherCode;
-              //recursion
-              addVoucherToShopDB(
-                percentage,
-                fixed,
-                isPercentage,
-                shopId,
-                couponCode
-              );
-            } else {
-              console.log(err);
-              return rej(err);
-            }
-          } else {
-            return res(result[0][0]);
-          }
-        }
-      );
-    }));
-  },
-  //checks both the existence of the voucher and also whether the voucher is redeemable already or not
-  checkVoucherExistenceAndRedeemability: async (voucherId, storeId) => {
-    var checkVoucherId = "CALL get_voucher_in_store(?, ?)";
-    return (voucherId = await new Promise((resolve, reject) => {
-      pool.query(checkVoucherId, [storeId, voucherId], (err, result) => {
-        if (err) {
-          reject(0);
+    console.log(endDate);
+    //create coupon
+    const addVoucherToCart =
+      "CALL add_voucher_to_shop(?, ?, ?, ?, ?, ?, ?, ?, ?)";
+
+    console.log("Hey");
+    console.log(
+      moment(new Date(startDate))
+        .format("YYYY-MM-DD")
+        .toString()
+    );
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(addVoucherToCart, [
+        moment(new Date())
+          .format("YYYY-MM-DD")
+          .toString(),
+        value,
+        isPercentage,
+        moment(new Date(startDate))
+          .format("YYYY-MM-DD")
+          .toString(),
+        moment(new Date(endDate))
+          .format("YYYY-MM-DD")
+          .toString(),
+        voucherCode,
+        max_number_allowed,
+        storeId,
+        retailer_id
+      ])
+    );
+    //get any possible error
+    if (queryError) {
+      if (queryError.errno === 1062) {
+        if (couponCode.length !== 0) {
+          console.log(queryError);
+          return queryError;
         } else {
-          //no voucher with the id submitted from the user was found
-          if (result[0].length === 0) {
-            reject(1);
-          } else {
-            //if redeemable is already false dont set it again to FALSE
-            //its is not redeemable
-            if (result[0][0].reedemable.includes(0o00)) {
-              reject(2);
-            }
-            resolve(result[0][0].coupon_id);
-          }
+          await module.exports.addVoucherToShopDB(
+            value,
+            isPercentage,
+            startDate,
+            endDate,
+            "",
+            max_number_allowed,
+            storeId,
+            retailer_id
+          );
         }
-      });
-    }));
+      }
+    }
+
+    if (queryError) {
+      return queryError;
+    }
+    console.log(queryResult);
+    const [resultSet] = queryResult;
+
+    console.log("CREATED COUPON WITH ID : " + resultSet[0].coupon_id);
+
+    var result = await module.exports.createStoreCouponConnection(
+      resultSet[0].coupon_id,
+      storeId
+    );
+
+    if (result instanceof Error) {
+      console.log(result);
+      //TODO MUST BE ABLE TO ROLLBACK
+      return result;
+    }
+    return resultSet;
+  },
+
+  createStoreCouponConnection: async (coupon_id, store_id) => {
+    const addVoucherStore = "CALL add_voucher_to_shop_coupon_connection(?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(addVoucherStore, [store_id, coupon_id])
+    );
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    //this means that the user has an active cart that belongs to the shop and the
+    // result set holds the products of the cart with the cart id
+    return;
   },
 
   deleteVoucherFromStore: async (voucherId, storeId) => {

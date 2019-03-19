@@ -1,6 +1,5 @@
 const mysql = require("mysql");
-const util = require('util');
-
+const util = require("util");
 
 const pool = mysql.createPool({
   connectionLimit: 10,
@@ -17,8 +16,8 @@ pool.getConnection((err, connection) => {
     if (err.code === "ENOTFOUND") {
       console.error("Database not found.");
     }
-    if (err.code === 'PROTOCOL_SEQUENCE_TIMEOUT') {
-      console.error('Database Handshake inactivity timeout.');
+    if (err.code === "PROTOCOL_SEQUENCE_TIMEOUT") {
+      console.error("Database Handshake inactivity timeout.");
     }
     if (err.code === "PROTOCOL_CONNECTION_LOST") {
       console.error("Database connection was closed.");
@@ -32,6 +31,7 @@ pool.getConnection((err, connection) => {
   }
 
   if (connection) {
+    console.log("Connected");
     // var sql = "CALL create_customer(?,?)";
     // var email = "lol";
     // var password = "lolakos";
@@ -49,6 +49,5 @@ pool.getConnection((err, connection) => {
 pool.promiseQuery = util.promisify(pool.query);
 
 pool.getConnection = util.promisify(pool.getConnection);
-
 
 module.exports = pool;
