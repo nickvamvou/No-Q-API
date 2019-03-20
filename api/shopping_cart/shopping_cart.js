@@ -616,6 +616,7 @@ module.exports = {
     } else {
       const [resultSet] = queryResult;
       if (resultSet.length === 0) {
+        console.log(resultSet);
         return new Error(500);
       } else {
         return resultSet;

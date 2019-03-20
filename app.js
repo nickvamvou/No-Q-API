@@ -33,17 +33,17 @@ app.use(
     extended: false
   })
 );
-//adding headers to every response. From where we can receive requests
-app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "*");
-  //allow all headers
-  res.header("Access-Control-Allow-Headers", "*");
-  //this is the first request that the broswer sends to check if it can make a request
-  if (req.method === "OPTIONS") {
-    res.header("Access-Control-Allow-Methods", "PUT, POST, PATCH, DELETE, GET");
-    return res.status(200).json({});
-  }
-});
+// //adding headers to every response. From where we can receive requests
+// app.use((req, res, next) => {
+//   res.header("Access-Control-Allow-Origin", "*");
+//   //allow all headers
+//   res.header("Access-Control-Allow-Headers", "*");
+//   //this is the first request that the broswer sends to check if it can make a request
+//   if (req.method === "OPTIONS") {
+//     res.header("Access-Control-Allow-Methods", "PUT, POST, PATCH, DELETE, GET");
+//     return res.status(200).json({});
+//   }
+// });
 
 /*
 *******************************************************************************
