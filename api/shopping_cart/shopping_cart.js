@@ -175,6 +175,8 @@ module.exports = {
    */
 
   addProductToCart: async (req, res, next) => {
+    const { dbTransactionInstance } = res.locals;
+
     authorized = true;
 
     if (authorized) {
@@ -187,12 +189,6 @@ module.exports = {
           req.body.cart_id,
           req.params.userId
         );
-
-        console.log(
-          "This is the active cart of store : " + storeIdOfActiveCart
-        );
-
-        console.log("HAHA : " + storeIdOfActiveCart);
 
         if (storeIdOfActiveCart instanceof Error) {
           return res.status(500).json({
@@ -220,11 +216,13 @@ module.exports = {
             //Store id is correct
             var cartDeletion = await module.exports.deleteCartFromCartAndFromActive(
               storeIdOfActiveCart.store_id,
-              req.params.userId
+              req.params.userId,
+              dbTransactionInstance
             );
 
             //there was a problem deleting the cart
             if (cartDeletion instanceof Error) {
+              await dbTransactionInstance.rollbackAndReleaseConn();
               return res.status(500).json({
                 message: cartDeletion
               });
@@ -232,12 +230,14 @@ module.exports = {
           }
 
           //create new cart in the cart table and make it an active cart
-          var cartIdCreated = await module.exports.createNewCartAndMakeItActive(
+          var cartIdCreated = await module.exports.createNewCartAndMakeItActiveTransaction(
             req.params.userId,
-            req.body.store_id
+            req.body.store_id,
+            dbTransactionInstance
           );
 
           if (cartIdCreated instanceof Error) {
+            await dbTransactionInstance.rollbackAndReleaseConn();
             return res.status(500).json({
               message: cartIdCreated
             });
@@ -252,20 +252,23 @@ module.exports = {
           var cartItems = await module.exports.addProductsToUsersCartBasedOnBarcode(
             req.body.barcode,
             cart_id,
-            req.body.store_id
+            req.body.store_id,
+            dbTransactionInstance
           );
         } else {
           //the user has an active cart to the particular shop (or one is created), add the product to the cart
           var cartItems = await module.exports.addProductToUsersCartBasedOnBarcode(
             req.body.barcode[0],
             cart_id,
-            req.body.store_id
+            req.body.store_id,
+            dbTransactionInstance
           );
         }
 
         if (cartItems instanceof Error) {
           console.log(cartItems);
           //TODO ROLLBACK IF THIS GIVES AN ERROR
+          await dbTransactionInstance.rollbackAndReleaseConn();
           return res.status(500).json({
             error:
               "Error adding the product because it does not exist or is not associated with this store"
@@ -414,9 +417,6 @@ module.exports = {
       //get how many active carts the user has (irrelevant from the store)
       const [{ number_active_carts }] = cartIdAndProducts;
 
-      console.log(
-        "NUMBER OF ACTIVE CARTS IN A DIFFERENT SHOP : " + number_active_carts
-      );
       //if the user has 1 or more active carts with different shops delete the carts
       if (number_active_carts > 0) {
         const [{ cart_id }] = cartIdAndProducts;
@@ -591,7 +591,12 @@ module.exports = {
   },
 
   //adds a product to a users cart
-  addProductToUsersCartBasedOnBarcode: async (barcode, cartId, storeId) => {
+  addProductToUsersCartBasedOnBarcode: async (
+    barcode,
+    cartId,
+    storeId,
+    dbTransactionInstance
+  ) => {
     const addProductToCartBasedOnBarcode =
       "CALL add_product_based_barcode_to_user_cart(?, ?, ?, ?)";
 
@@ -601,7 +606,7 @@ module.exports = {
       .toString();
 
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(addProductToCartBasedOnBarcode, [
+      dbTransactionInstance.query(addProductToCartBasedOnBarcode, [
         barcode,
         cartId,
         storeId,
@@ -656,12 +661,16 @@ module.exports = {
   /*
     Receives cart id and deletes it from the cart and the active cart table
   */
-  deleteCartFromCartAndFromActive: async (shop_id, user_id) => {
+  deleteCartFromCartAndFromActive: async (
+    shop_id,
+    user_id,
+    dbTransactionInstance
+  ) => {
     console.log("sp : " + shop_id);
     console.log("ui : " + user_id);
     const deleteActiveCart = "CALL delete_cart(?,?)";
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(deleteActiveCart, [shop_id, user_id])
+      dbTransactionInstance.query(deleteActiveCart, [shop_id, user_id])
     );
     //get any possible error
     if (queryError) {
@@ -693,6 +702,36 @@ module.exports = {
     }
 
     return resultSet[0];
+  },
+
+  /*
+    Receives the customer id who is going to be the owner of the cart and
+    the store id which the cart will belong. Returns the id of the new cart.
+  */
+  createNewCartAndMakeItActiveTransaction: async (
+    customer_id,
+    store_id,
+    dbTransactionInstance
+  ) => {
+    const createNewCart = "CALL create_new_active_cart(?,?)";
+    const [queryError, queryResult] = await to(
+      dbTransactionInstance.query(createNewCart, [customer_id, store_id])
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    const [resultSet] = queryResult;
+
+    if (!resultSet.length) {
+      return DB_EMPTY_RESPONSE;
+    }
+
+    const [{ id }] = resultSet;
+    //returns the id of the new cart
+    return id;
   },
 
   /*

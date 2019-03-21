@@ -1553,7 +1553,7 @@ module.exports = {
     //   )
 
     var authorized = true;
-
+    const { dbTransactionInstance } = res.locals;
     console.log(req.params.storeId);
     if (authorized) {
       let voucherCode;
@@ -1575,7 +1575,8 @@ module.exports = {
           req.body.voucher_code,
           req.body.max_number_allowed,
           req.params.storeId,
-          req.userData.id
+          req.userData.id,
+          dbTransactionInstance
         )
         .then(voucher_details => {
           if (voucher_details instanceof Error) {
@@ -1973,7 +1974,8 @@ module.exports = {
     couponCode,
     max_number_allowed,
     storeId,
-    retailer_id
+    retailer_id,
+    dbTransactionInstance
   ) => {
     let voucherCode;
     //if retailer did not provide a voucher code generate a unique code
@@ -1996,7 +1998,7 @@ module.exports = {
     );
 
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(addVoucherToCart, [
+      dbTransactionInstance.query(addVoucherToCart, [
         moment(new Date())
           .format("YYYY-MM-DD")
           .toString(),
@@ -2029,38 +2031,42 @@ module.exports = {
             "",
             max_number_allowed,
             storeId,
-            retailer_id
+            retailer_id,
+            dbTransactionInstance
           );
         }
       }
     }
 
     if (queryError) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
       return queryError;
     }
     console.log(queryResult);
     const [resultSet] = queryResult;
 
-    console.log("CREATED COUPON WITH ID : " + resultSet[0].coupon_id);
-
     var result = await module.exports.createStoreCouponConnection(
       resultSet[0].coupon_id,
-      storeId
+      storeId,
+      dbTransactionInstance
     );
 
     if (result instanceof Error) {
-      console.log(result);
-      //TODO MUST BE ABLE TO ROLLBACK
+      await dbTransactionInstance.rollbackAndReleaseConn();
       return result;
     }
     return resultSet;
   },
 
-  createStoreCouponConnection: async (coupon_id, store_id) => {
+  createStoreCouponConnection: async (
+    coupon_id,
+    store_id,
+    dbTransactionInstance
+  ) => {
     const addVoucherStore = "CALL add_voucher_to_shop_coupon_connection(?, ?)";
 
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(addVoucherStore, [store_id, coupon_id])
+      dbTransactionInstance.query(addVoucherStore, [store_id, coupon_id])
     );
     //get any possible error
     if (queryError) {
