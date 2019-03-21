@@ -176,6 +176,7 @@ module.exports = {
 
   addProductToCart: async (req, res, next) => {
     const { dbTransactionInstance } = res.locals;
+    console.log("reaches");
 
     authorized = true;
 
@@ -191,10 +192,13 @@ module.exports = {
         );
 
         if (storeIdOfActiveCart instanceof Error) {
+          console.log("goes 1");
           return res.status(500).json({
             message: storeIdOfActiveCart
           });
         }
+
+        console.log("reaches 1");
 
         //that variable stores the cart that will receive the product
         var cart_id = req.body.cart_id;
@@ -222,7 +226,9 @@ module.exports = {
 
             //there was a problem deleting the cart
             if (cartDeletion instanceof Error) {
+              console.log("goes 2");
               await dbTransactionInstance.rollbackAndReleaseConn();
+              console.log("goes 3");
               return res.status(500).json({
                 message: cartDeletion
               });
@@ -237,7 +243,10 @@ module.exports = {
           );
 
           if (cartIdCreated instanceof Error) {
+            console.log(cartIdCreated);
+            console.log("goes 4");
             await dbTransactionInstance.rollbackAndReleaseConn();
+            console.log("goes 5");
             return res.status(500).json({
               message: cartIdCreated
             });
@@ -245,6 +254,8 @@ module.exports = {
 
           cart_id = cartIdCreated;
         }
+
+        console.log("reaches 2");
 
         //if more than 1 product needs to be added to the cart
         if (req.body.barcode.length > 1) {
@@ -265,10 +276,13 @@ module.exports = {
           );
         }
 
+        console.log("reaches 3");
         if (cartItems instanceof Error) {
           console.log(cartItems);
+          console.log("goes 6");
           //TODO ROLLBACK IF THIS GIVES AN ERROR
           await dbTransactionInstance.rollbackAndReleaseConn();
+          console.log("goes 7");
           return res.status(500).json({
             error:
               "Error adding the product because it does not exist or is not associated with this store"
@@ -279,10 +293,17 @@ module.exports = {
           cartItems
         );
 
-        return res.status(200).json({
+        // return res.status(200).json({
+        //   message: "Product added to cart",
+        //   cart_products: cart_products
+        // });
+
+        res.locals.finalResponse = {
           message: "Product added to cart",
           cart_products: cart_products
-        });
+        };
+
+        next();
       }
 
       // RFID SOLUTION
@@ -631,7 +652,8 @@ module.exports = {
   addProductsToUsersCartBasedOnBarcode: async (
     barcodesArray,
     cartId,
-    storeId
+    storeId,
+    dbTransactionInstance
   ) => {
     if (barcodesArray.length === 0) {
       return new Error(500);
@@ -642,7 +664,8 @@ module.exports = {
       var added = await module.exports.addProductToUsersCartBasedOnBarcode(
         barcodesArray[barcode],
         cartId,
-        storeId
+        storeId,
+        dbTransactionInstance
       );
       if (added instanceof Error) {
         failed = true;
@@ -668,14 +691,21 @@ module.exports = {
   ) => {
     console.log("sp : " + shop_id);
     console.log("ui : " + user_id);
+    console.log("here");
     const deleteActiveCart = "CALL delete_cart(?,?)";
-    const [queryError, queryResult] = await to(
+
+    let [queryError, queryResult] = await to(
       dbTransactionInstance.query(deleteActiveCart, [shop_id, user_id])
     );
+
+    console.log("goes down");
     //get any possible error
     if (queryError) {
+      console.log("got an error");
+      console.log(queryError);
       return queryError;
     } else {
+      console.log(queryResult);
       return;
     }
   },

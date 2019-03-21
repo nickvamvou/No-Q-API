@@ -1584,10 +1584,11 @@ module.exports = {
               message: "Error with DB connection when trying to add voucher"
             });
           } else {
-            return res.status(200).json({
+            res.locals.finalResponse = {
               message: "Voucher Added",
               voucher: voucher_details
-            });
+            };
+            next();
           }
         });
     } else {
