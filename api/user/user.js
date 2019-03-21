@@ -124,7 +124,7 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    const [[{ uid: userId, password: hashedPass } = {}]] = queryResult;
+    const [[{ uid: userId, password: hashedPass, ...user } = {}]] = queryResult;
 
     if (!userId) {
       return next(
@@ -136,6 +136,7 @@ module.exports = {
     }
 
     res.locals.userId = userId;
+    res.locals.user = { ...user, uid: userId };
     res.locals.hashedPass = hashedPass;
     res.locals.providedPass = providedPass;
     res.locals.role = role.SHOPPER;
@@ -264,11 +265,12 @@ module.exports = {
   },
 
   sendAuthResponse: (req, res) => {
-    const { refreshToken, accessToken } = res.locals;
+    const { refreshToken, accessToken, user } = res.locals;
 
     res.json({
       refreshToken,
-      accessToken
+      accessToken,
+      user,
     });
   },
 
