@@ -20,6 +20,22 @@ module.exports = {
    *****************************************************************************
    */
 
+  //gets all stores registered in the system
+  getStores: async (req, res, next) => {
+    var getStoresFromDB = "CALL get_all_stores()";
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(getStoresFromDB)
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+    return res.status(200).json({
+      stores: queryResult
+    });
+  },
+
   /**
    * Responsible for creating a new store.
    * The owner of the store is obtained from req under the user data.

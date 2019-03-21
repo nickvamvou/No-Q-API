@@ -22,6 +22,12 @@ router.post(
   storeController.createNewStore
 );
 
+router.get(
+  "/getAllStores",
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  storeController.getStores
+);
+
 // Delete store (Only an administrator can delete stores)
 router.delete(
   "/:storeId/delete",
