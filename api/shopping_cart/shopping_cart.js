@@ -175,14 +175,6 @@ module.exports = {
    */
 
   addProductToCart: async (req, res, next) => {
-    //check for role and matching user data in URL with matching data with the token
-    //TODO uncomment section below
-    // var authorized = checkAuthorizationRole(
-    //   req.userData.id,
-    //   req.params.userId,
-    //   req.userData.role
-    // );
-
     authorized = true;
 
     if (authorized) {
@@ -598,20 +590,27 @@ module.exports = {
     return resultSet;
   },
 
+  //adds a product to a users cart
   addProductToUsersCartBasedOnBarcode: async (barcode, cartId, storeId) => {
     const addProductToCartBasedOnBarcode =
-      "CALL add_product_based_barcode_to_user_cart(?, ?, ?)";
+      "CALL add_product_based_barcode_to_user_cart(?, ?, ?, ?)";
+
+    //TODO if user is not logged in then all the scans will have the same timing
+    var timeItemIsScanned = moment(new Date())
+      .format("YYYY/MM/DD hh:mm:ss")
+      .toString();
 
     const [queryError, queryResult] = await to(
       pool.promiseQuery(addProductToCartBasedOnBarcode, [
         barcode,
         cartId,
-        storeId
+        storeId,
+        timeItemIsScanned
       ])
     );
+
     //get any possible error
     if (queryError) {
-      console.log("GOES IN THE SECOND ERROR");
       return queryError;
     } else {
       const [resultSet] = queryResult;

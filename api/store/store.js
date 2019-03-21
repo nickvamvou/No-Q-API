@@ -1763,6 +1763,7 @@ module.exports = {
   //Receives voucher starting, expiring date and checks whether the user can add it to the cart
   voucherDatesAreGood: (voucher_start_date, voucher_end_date) => {
     let current_date = moment(new Date()).format("YYYY/MM/DD");
+
     let voucher_start_date_final = moment(new Date(voucher_start_date)).format(
       "YYYY/MM/DD"
     );

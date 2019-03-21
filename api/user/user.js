@@ -358,7 +358,8 @@ module.exports = {
     // Success! Send newly issued JWT token as response.
     res.status(200).json({
       message: "You're now logged in with Google!",
-      token
+      token,
+      userId: customerId
     });
   },
 
