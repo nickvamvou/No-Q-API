@@ -13,7 +13,8 @@ const jwt = require("jsonwebtoken");
 const key = require("../../config/jwt_s_key");
 const { SqlError, password, auth } = require("../utils");
 const { initiateResetPassword } = require("./helpers");
-var moment = require("moment");
+const moment = require("moment");
+
 
 module.exports = {
   checkUserExistence: async ({ body: { email } }, res, next) => {
@@ -123,7 +124,7 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    const [[{ uid: userId, password: hashedPass } = {}]] = queryResult;
+    const [[{ uid: userId, password: hashedPass, ...user } = {}]] = queryResult;
 
     if (!userId) {
       return next(
@@ -135,6 +136,7 @@ module.exports = {
     }
 
     res.locals.userId = userId;
+    res.locals.user = { ...user, uid: userId };
     res.locals.hashedPass = hashedPass;
     res.locals.providedPass = providedPass;
     res.locals.role = role.SHOPPER;
@@ -263,11 +265,12 @@ module.exports = {
   },
 
   sendAuthResponse: (req, res) => {
-    const { refreshToken, accessToken } = res.locals;
+    const { refreshToken, accessToken, user } = res.locals;
 
     res.json({
       refreshToken,
-      accessToken
+      accessToken,
+      user,
     });
   },
 
@@ -935,7 +938,21 @@ module.exports = {
   /**
    * Retrieves all the details of a specific purchase
    */
-  getDetailsOfPreviousPurchase: async (req, res, next) => {},
+  getDetailsOfPreviousPurchase: async (req, res, next) => {
+    //TODO implement authorization
+
+    var purchaseDetails = await module.exports.getPreviousPurchasesDB(
+      req.params.userId
+    );
+    if (purchaseDetails instanceof Error) {
+      return res.status(500).json({
+        message: purchases
+      });
+    }
+    return res.status(200).json({
+      purchaseDetails: purchaseDetails
+    });
+  },
 
   /*
   ******************************************************************************
