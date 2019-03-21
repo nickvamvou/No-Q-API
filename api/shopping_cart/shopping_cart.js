@@ -1060,6 +1060,9 @@ module.exports = {
       }
     ] = resultSet;
 
+    console.log(valid_from);
+    console.log(valid_until);
+
     if (
       is_redeem_allowed.includes(00) ||
       !module.exports.canBeUsedBasedOnNumberOfPeople(
@@ -1086,12 +1089,16 @@ module.exports = {
       "YYYY/MM/DD"
     );
 
+    console.log(current_date);
+    console.log(voucher_start_date_final);
+
     if (
-      current_date >= voucher_end_date_final &&
+      current_date >= voucher_end_date_final ||
       current_date < voucher_start_date_final
     ) {
       return false;
     } else {
+      console.log("true");
       return true;
     }
 
