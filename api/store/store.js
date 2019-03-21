@@ -267,7 +267,7 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    var filteredOrder = module.exports.filterCartProductsWithOptions(
+    var filteredOrder = module.exports.filterPurchaseProductsWithOptions(
       queryResult[0]
     );
 
@@ -1646,7 +1646,7 @@ module.exports = {
     return resultSet;
   },
 
-  filterCartProductsWithOptions: cart_with_products => {
+  filterPurchaseProductsWithOptions: cart_with_products => {
     console.log("hello : " + cart_with_products);
     var filtered_cart = [];
     var product_ids_visited = [];
