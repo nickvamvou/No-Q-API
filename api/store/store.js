@@ -254,7 +254,7 @@ module.exports = {
   ) => {
     // Issue query to get details of an order.
     let [queryError, queryResult] = await to(
-      pool.promiseQuery("call get_details_of_previous_purchase(?, ?, ?)", [
+      pool.promiseQuery("call get_details_of_previous_purchase_as_retailer(?, ?, ?)", [
         storeId,
         orderId,
         userId

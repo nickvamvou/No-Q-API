@@ -936,21 +936,40 @@ module.exports = {
   },
 
   /**
-   * Retrieves all the details of a specific purchase
+   * Endpoint: `GET user/:userId/purchases/:purchaseId`
+   * Primary actors: [ Customer ]
+   * Secondary actors: None
+   *
+   * This endpoint handler retrieves details
+   * of a previous order.
+   *
+   * Alternative flows:
+   *
+   * - If error occurs while getting store orders from the database,
+   *   halt process and forward database error to central error handler.
+   *
+   * @param `purchaseId` [Number] - `id` of the purchase.
+   *
+   * @param `res` [Object] - Express's HTTP response object.
+   * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
+   *
    */
-  getDetailsOfPreviousPurchase: async (req, res, next) => {
-    //TODO implement authorization
-
-    var purchaseDetails = await module.exports.getPreviousPurchasesDB(
-      req.params.userId
+  getPreviousPurchase: async ({ params: { purchaseId } }, res, next) => {
+    // Issue query to get details of a customer purchase.
+    let [ queryError, queryResult ] = await to(
+      pool.promiseQuery("call get_details_of_previous_purchase_as_customer(?)", [ purchaseId ])
     );
-    if (purchaseDetails instanceof Error) {
-      return res.status(500).json({
-        message: purchases
-      });
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
     }
-    return res.status(200).json({
-      purchaseDetails: purchaseDetails
+
+    // Get purchases from query result.
+    const [ purchases ] = queryResult;
+
+    res.json({
+      data: purchases
     });
   },
 
@@ -959,34 +978,6 @@ module.exports = {
                             Helper Functions
   ******************************************************************************
   */
-
-  /**
-   * Retrieves all the details of a specific purchase
-   */
-  getDetailsOfPreviousPurchaseDB: async purchase_id => {
-    const getDetailsofPreviousPurchaseDB =
-      "CALL get_details_of_previous_purchase(?)";
-    const [queryError, queryResult] = await to(
-      pool.promiseQuery(getDetailsofPreviousPurchaseDB, [purchase_id])
-    );
-    const [resultSet] = queryResult;
-    //get any possible error
-    if (queryError) {
-      return queryError;
-    } else {
-      return resultSet;
-    }
-  },
-
-  filterPurchaseDetails: purchaseDetails => {
-    purchaseDetails = {};
-    product_detail_product_id_quantity = {};
-    products = [];
-
-    for (var entry of purchaseDetails) {
-    }
-  },
-
   /**
    * Retrieves all the purchases of a user and sends based on the userId
    */
