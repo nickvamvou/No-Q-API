@@ -13,7 +13,7 @@ const productDetailsRouter = require("./api/product_details/index");
 var storeRouter = require("./api/store/index");
 var usersRouter = require("./api/user/index");
 var cartRouter = require("./api/shopping_cart/index");
-const supportAPI = require('./api/support');
+const supportAPI = require("./api/support");
 
 var app = express();
 
@@ -33,7 +33,7 @@ app.use(
     extended: false
   })
 );
-// //adding headers to every response. From where we can receive requests
+//adding headers to every response. From where we can receive requests
 // app.use((req, res, next) => {
 //   res.header("Access-Control-Allow-Origin", "*");
 //   //allow all headers
@@ -51,7 +51,7 @@ app.use(
 *******************************************************************************
 */
 app.use("/", indexRouter);
-app.use('/auth', authRouter);
+app.use("/auth", authRouter);
 app.use("/user", usersRouter);
 app.use("/products", productsRouter);
 app.use("/productDetails", productDetailsRouter);

@@ -90,7 +90,7 @@ router.post(
   dbTransactionMiddleware.startDbTransaction,
   storeController.createOrUpdateGroupedOptions,
   storeController.createOrUpdateItemGroup,
-  dbTransactionMiddleware.endDbTransaction,
+  dbTransactionMiddleware.endDbTransaction
 );
 
 // Get all item groups.
@@ -107,14 +107,14 @@ router.patch(
   dbTransactionMiddleware.startDbTransaction,
   storeController.createOrUpdateGroupedOptions,
   storeController.createOrUpdateItemGroup,
-  dbTransactionMiddleware.endDbTransaction,
+  dbTransactionMiddleware.endDbTransaction
 );
 
 // Delete an item group
 router.delete(
   "/:storeId/itemGroups/:itemGroupId",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.softDeleteItemGroup,
+  storeController.softDeleteItemGroup
 );
 
 // Get all product details associated with an item group
@@ -138,7 +138,7 @@ router.post(
   dbTransactionMiddleware.startDbTransaction,
   storeController.createOrUpdateGroupedOptions,
   storeController.createProductDetails,
-  dbTransactionMiddleware.endDbTransaction,
+  dbTransactionMiddleware.endDbTransaction
 );
 
 // Get all scanned unpaid products
@@ -201,7 +201,9 @@ router.get(
 router.post(
   "/:storeId/vouchers/addVoucher",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
-  storeController.addVoucherToShop
+  dbTransactionMiddleware.startDbTransaction,
+  storeController.addVoucherToShop,
+  dbTransactionMiddleware.endDbTransaction
 );
 
 //TODO uncomment line 116 (authorization)

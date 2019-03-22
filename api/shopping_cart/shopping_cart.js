@@ -175,13 +175,8 @@ module.exports = {
    */
 
   addProductToCart: async (req, res, next) => {
-    //check for role and matching user data in URL with matching data with the token
-    //TODO uncomment section below
-    // var authorized = checkAuthorizationRole(
-    //   req.userData.id,
-    //   req.params.userId,
-    //   req.userData.role
-    // );
+    const { dbTransactionInstance } = res.locals;
+    console.log("reaches");
 
     authorized = true;
 
@@ -196,17 +191,14 @@ module.exports = {
           req.params.userId
         );
 
-        console.log(
-          "This is the active cart of store : " + storeIdOfActiveCart
-        );
-
-        console.log("HAHA : " + storeIdOfActiveCart);
-
         if (storeIdOfActiveCart instanceof Error) {
+          console.log("goes 1");
           return res.status(500).json({
             message: storeIdOfActiveCart
           });
         }
+
+        console.log("reaches 1");
 
         //that variable stores the cart that will receive the product
         var cart_id = req.body.cart_id;
@@ -228,11 +220,15 @@ module.exports = {
             //Store id is correct
             var cartDeletion = await module.exports.deleteCartFromCartAndFromActive(
               storeIdOfActiveCart.store_id,
-              req.params.userId
+              req.params.userId,
+              dbTransactionInstance
             );
 
             //there was a problem deleting the cart
             if (cartDeletion instanceof Error) {
+              console.log("goes 2");
+              await dbTransactionInstance.rollbackAndReleaseConn();
+              console.log("goes 3");
               return res.status(500).json({
                 message: cartDeletion
               });
@@ -240,12 +236,17 @@ module.exports = {
           }
 
           //create new cart in the cart table and make it an active cart
-          var cartIdCreated = await module.exports.createNewCartAndMakeItActive(
+          var cartIdCreated = await module.exports.createNewCartAndMakeItActiveTransaction(
             req.params.userId,
-            req.body.store_id
+            req.body.store_id,
+            dbTransactionInstance
           );
 
           if (cartIdCreated instanceof Error) {
+            console.log(cartIdCreated);
+            console.log("goes 4");
+            await dbTransactionInstance.rollbackAndReleaseConn();
+            console.log("goes 5");
             return res.status(500).json({
               message: cartIdCreated
             });
@@ -254,26 +255,34 @@ module.exports = {
           cart_id = cartIdCreated;
         }
 
+        console.log("reaches 2");
+
         //if more than 1 product needs to be added to the cart
         if (req.body.barcode.length > 1) {
           //the user has an active cart to the particular shop (or one is created), add the product to the cart
           var cartItems = await module.exports.addProductsToUsersCartBasedOnBarcode(
             req.body.barcode,
             cart_id,
-            req.body.store_id
+            req.body.store_id,
+            dbTransactionInstance
           );
         } else {
           //the user has an active cart to the particular shop (or one is created), add the product to the cart
           var cartItems = await module.exports.addProductToUsersCartBasedOnBarcode(
             req.body.barcode[0],
             cart_id,
-            req.body.store_id
+            req.body.store_id,
+            dbTransactionInstance
           );
         }
 
+        console.log("reaches 3");
         if (cartItems instanceof Error) {
           console.log(cartItems);
+          console.log("goes 6");
           //TODO ROLLBACK IF THIS GIVES AN ERROR
+          await dbTransactionInstance.rollbackAndReleaseConn();
+          console.log("goes 7");
           return res.status(500).json({
             error:
               "Error adding the product because it does not exist or is not associated with this store"
@@ -284,10 +293,17 @@ module.exports = {
           cartItems
         );
 
-        return res.status(200).json({
+        // return res.status(200).json({
+        //   message: "Product added to cart",
+        //   cart_products: cart_products
+        // });
+
+        res.locals.finalResponse = {
           message: "Product added to cart",
           cart_products: cart_products
-        });
+        };
+
+        next();
       }
 
       // RFID SOLUTION
@@ -422,9 +438,6 @@ module.exports = {
       //get how many active carts the user has (irrelevant from the store)
       const [{ number_active_carts }] = cartIdAndProducts;
 
-      console.log(
-        "NUMBER OF ACTIVE CARTS IN A DIFFERENT SHOP : " + number_active_carts
-      );
       //if the user has 1 or more active carts with different shops delete the carts
       if (number_active_carts > 0) {
         const [{ cart_id }] = cartIdAndProducts;
@@ -598,24 +611,37 @@ module.exports = {
     return resultSet;
   },
 
-  addProductToUsersCartBasedOnBarcode: async (barcode, cartId, storeId) => {
+  //adds a product to a users cart
+  addProductToUsersCartBasedOnBarcode: async (
+    barcode,
+    cartId,
+    storeId,
+    dbTransactionInstance
+  ) => {
     const addProductToCartBasedOnBarcode =
-      "CALL add_product_based_barcode_to_user_cart(?, ?, ?)";
+      "CALL add_product_based_barcode_to_user_cart(?, ?, ?, ?)";
+
+    //TODO if user is not logged in then all the scans will have the same timing
+    var timeItemIsScanned = moment(new Date())
+      .format("YYYY/MM/DD hh:mm:ss")
+      .toString();
 
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(addProductToCartBasedOnBarcode, [
+      dbTransactionInstance.query(addProductToCartBasedOnBarcode, [
         barcode,
         cartId,
-        storeId
+        storeId,
+        timeItemIsScanned
       ])
     );
+
     //get any possible error
     if (queryError) {
-      console.log("GOES IN THE SECOND ERROR");
       return queryError;
     } else {
       const [resultSet] = queryResult;
       if (resultSet.length === 0) {
+        console.log(resultSet);
         return new Error(500);
       } else {
         return resultSet;
@@ -626,7 +652,8 @@ module.exports = {
   addProductsToUsersCartBasedOnBarcode: async (
     barcodesArray,
     cartId,
-    storeId
+    storeId,
+    dbTransactionInstance
   ) => {
     if (barcodesArray.length === 0) {
       return new Error(500);
@@ -637,7 +664,8 @@ module.exports = {
       var added = await module.exports.addProductToUsersCartBasedOnBarcode(
         barcodesArray[barcode],
         cartId,
-        storeId
+        storeId,
+        dbTransactionInstance
       );
       if (added instanceof Error) {
         failed = true;
@@ -656,17 +684,28 @@ module.exports = {
   /*
     Receives cart id and deletes it from the cart and the active cart table
   */
-  deleteCartFromCartAndFromActive: async (shop_id, user_id) => {
+  deleteCartFromCartAndFromActive: async (
+    shop_id,
+    user_id,
+    dbTransactionInstance
+  ) => {
     console.log("sp : " + shop_id);
     console.log("ui : " + user_id);
+    console.log("here");
     const deleteActiveCart = "CALL delete_cart(?,?)";
-    const [queryError, queryResult] = await to(
-      pool.promiseQuery(deleteActiveCart, [shop_id, user_id])
+
+    let [queryError, queryResult] = await to(
+      dbTransactionInstance.query(deleteActiveCart, [shop_id, user_id])
     );
+
+    console.log("goes down");
     //get any possible error
     if (queryError) {
+      console.log("got an error");
+      console.log(queryError);
       return queryError;
     } else {
+      console.log(queryResult);
       return;
     }
   },
@@ -693,6 +732,36 @@ module.exports = {
     }
 
     return resultSet[0];
+  },
+
+  /*
+    Receives the customer id who is going to be the owner of the cart and
+    the store id which the cart will belong. Returns the id of the new cart.
+  */
+  createNewCartAndMakeItActiveTransaction: async (
+    customer_id,
+    store_id,
+    dbTransactionInstance
+  ) => {
+    const createNewCart = "CALL create_new_active_cart(?,?)";
+    const [queryError, queryResult] = await to(
+      dbTransactionInstance.query(createNewCart, [customer_id, store_id])
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    }
+
+    const [resultSet] = queryResult;
+
+    if (!resultSet.length) {
+      return DB_EMPTY_RESPONSE;
+    }
+
+    const [{ id }] = resultSet;
+    //returns the id of the new cart
+    return id;
   },
 
   /*
@@ -991,6 +1060,9 @@ module.exports = {
       }
     ] = resultSet;
 
+    console.log(valid_from);
+    console.log(valid_until);
+
     if (
       is_redeem_allowed.includes(00) ||
       !module.exports.canBeUsedBasedOnNumberOfPeople(
@@ -1017,12 +1089,16 @@ module.exports = {
       "YYYY/MM/DD"
     );
 
+    console.log(current_date);
+    console.log(voucher_start_date_final);
+
     if (
-      current_date >= voucher_end_date_final &&
+      current_date >= voucher_end_date_final ||
       current_date < voucher_start_date_final
     ) {
       return false;
     } else {
+      console.log("true");
       return true;
     }
 

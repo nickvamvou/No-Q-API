@@ -4,7 +4,7 @@ var router = express.Router();
 const orderController = require("./shopping_cart");
 const checkAuth = require("../middleware/check-auth");
 const role = require("../user/user-role");
-
+const { dbTransactionMiddleware } = require("../middleware");
 router.get(
   "/:storeId/product/:barcode",
   orderController.getProductInformationBasedOnBarcode
@@ -14,7 +14,9 @@ router.get(
 router.post(
   "/:userId/add",
   // checkAuth.userAuth([role.SHOPPER]),
-  orderController.addProductToCart
+  dbTransactionMiddleware.startDbTransaction,
+  orderController.addProductToCart,
+  dbTransactionMiddleware.endDbTransaction
 );
 
 // TODO REMOVE COMMEN IN LINE 20 (authorization)

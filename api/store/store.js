@@ -263,20 +263,22 @@ module.exports = {
 
     // Forward query error to central error handler.
     if (queryError) {
+      console.log(queryError);
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    // Get items groups from query result.
-    const [[order]] = queryResult;
+    var filteredOrder = module.exports.filterPurchaseProductsWithOptions(
+      queryResult[0]
+    );
 
     // Order not found? Send down a 404 error.
-    if (!order) {
+    if (!filteredOrder) {
       return next(createHttpError(404, "Order not found"));
     }
 
     // Return order
     res.json({
-      data: order
+      data: filteredOrder
     });
   },
 
@@ -679,7 +681,9 @@ module.exports = {
 
     // Dish out final result :)
     res.json({
-      data: productDetails
+      data: productDetails.map(({ options, ...rest }) => {
+        return ({ ...rest, options: JSON.parse(options) })
+      }),
     });
   },
 
@@ -746,7 +750,6 @@ module.exports = {
     res,
     next
   ) => {
-    console.log(userId);
     /* Every query from here on is executed within the database transaction. */
 
     const { dbTransactionInstance, optionIds } = res.locals;
@@ -836,7 +839,7 @@ module.exports = {
     next();
   },
 
-  createOrUpdateGroupedOptions: async ({ body: { options } }, res, next) => {
+  createOrUpdateGroupedOptions: async ({ body: { options = [] } }, res, next) => {
     const { dbTransactionInstance } = res.locals;
     let optionIds = [];
 
@@ -1228,7 +1231,7 @@ module.exports = {
     //   )
 
     var authorized = true;
-
+    const { dbTransactionInstance } = res.locals;
     console.log(req.params.storeId);
     if (authorized) {
       let voucherCode;
@@ -1250,7 +1253,8 @@ module.exports = {
           req.body.voucher_code,
           req.body.max_number_allowed,
           req.params.storeId,
-          req.userData.id
+          req.userData.id,
+          dbTransactionInstance
         )
         .then(voucher_details => {
           if (voucher_details instanceof Error) {
@@ -1258,10 +1262,11 @@ module.exports = {
               message: "Error with DB connection when trying to add voucher"
             });
           } else {
-            return res.status(200).json({
+            res.locals.finalResponse = {
               message: "Voucher Added",
               voucher: voucher_details
-            });
+            };
+            next();
           }
         });
     } else {
@@ -1319,6 +1324,84 @@ module.exports = {
     return resultSet;
   },
 
+  filterPurchaseProductsWithOptions: cart_with_products => {
+    console.log("hello : " + cart_with_products);
+    var filtered_cart = [];
+    var product_ids_visited = [];
+
+    var current_product = {};
+
+    for (product_detail_entry of cart_with_products) {
+      if (!product_ids_visited.includes(product_detail_entry.product_id)) {
+        filtered_cart.push(current_product);
+        product_ids_visited.push(product_detail_entry.product_id);
+        current_product = product_detail_entry;
+      } else {
+        current_product.option_value =
+          current_product.option_value +
+          "," +
+          product_detail_entry.option_value;
+
+        current_product.option_group_name =
+          current_product.option_group_name +
+          "," +
+          product_detail_entry.option_group_name;
+      }
+    }
+
+    //TODO (DO NOT REMOVE THE FIRS ENTRY LIKE THAT)
+
+    filtered_cart.push(current_product);
+
+    filtered_cart = filtered_cart.slice(1);
+
+    return filtered_cart;
+
+    // //get all the product details, option values and option groups for 1 product
+    // for (i = 0; i < cart_with_products.length; i++) {
+    //   //get all the product detail information
+    //   for (var property in cart_with_products[i]) {
+    //     if (property !== "product_id") {
+    //       if (product_id_visited.includes(cart_with_products[i][property])) {
+    //         continue;
+    //       }
+    //     }
+    //     if (property !== "option_value" && property !== "option_group_name") {
+    //       individual_product_details[property] =
+    //         cart_with_products[i][property];
+    //     }
+    //     //loop through the array of values
+    //     else {
+    //       //we loop through the option values and add them to individual product details
+    //       if (property === "option_value") {
+    //         for (var option_value in cart_with_products[i][property]) {
+    //           indiviual_values.push(cart_with_products[i].option_value);
+    //           console.log("stop");
+    //         }
+    //       }
+    //       //we loop through the option group and add them to individual product details
+    //       else {
+    //         for (var option_group in cart_with_products[i][property]) {
+    //           individual_group_names.push(
+    //             cart_with_products[i].option_group_name
+    //           );
+    //         }
+    //       }
+    //     }
+    //   }
+    //   product_id_visited.push(cart_with_products[i]["product_id"]);
+    //   //add the group names and values to the product Details
+    //   individual_product_details["option_values"] = indiviual_values;
+    //   individual_product_details["option_group_names"] = individual_group_names;
+    //
+    //   //add the product details object to the array
+    //   transformed_cart.push(individual_product_details);
+    //   individual_product_details = {};
+    //   var indiviual_values = [];
+    //   var individual_group_names = [];
+    // }
+  },
+
   //takes all the vouchers of a particular shop and decides which ones are redeemable and updates
   //the redeemable value of the particular voucher
   filterRedeemableVouchers: vouchersArray => {
@@ -1360,6 +1443,7 @@ module.exports = {
   //Receives voucher starting, expiring date and checks whether the user can add it to the cart
   voucherDatesAreGood: (voucher_start_date, voucher_end_date) => {
     let current_date = moment(new Date()).format("YYYY/MM/DD");
+
     let voucher_start_date_final = moment(new Date(voucher_start_date)).format(
       "YYYY/MM/DD"
     );
@@ -1569,7 +1653,8 @@ module.exports = {
     couponCode,
     max_number_allowed,
     storeId,
-    retailer_id
+    retailer_id,
+    dbTransactionInstance
   ) => {
     let voucherCode;
     //if retailer did not provide a voucher code generate a unique code
@@ -1592,7 +1677,7 @@ module.exports = {
     );
 
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(addVoucherToCart, [
+      dbTransactionInstance.query(addVoucherToCart, [
         moment(new Date())
           .format("YYYY-MM-DD")
           .toString(),
@@ -1625,38 +1710,42 @@ module.exports = {
             "",
             max_number_allowed,
             storeId,
-            retailer_id
+            retailer_id,
+            dbTransactionInstance
           );
         }
       }
     }
 
     if (queryError) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
       return queryError;
     }
     console.log(queryResult);
     const [resultSet] = queryResult;
 
-    console.log("CREATED COUPON WITH ID : " + resultSet[0].coupon_id);
-
     var result = await module.exports.createStoreCouponConnection(
       resultSet[0].coupon_id,
-      storeId
+      storeId,
+      dbTransactionInstance
     );
 
     if (result instanceof Error) {
-      console.log(result);
-      //TODO MUST BE ABLE TO ROLLBACK
+      await dbTransactionInstance.rollbackAndReleaseConn();
       return result;
     }
     return resultSet;
   },
 
-  createStoreCouponConnection: async (coupon_id, store_id) => {
+  createStoreCouponConnection: async (
+    coupon_id,
+    store_id,
+    dbTransactionInstance
+  ) => {
     const addVoucherStore = "CALL add_voucher_to_shop_coupon_connection(?, ?)";
 
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(addVoucherStore, [store_id, coupon_id])
+      dbTransactionInstance.query(addVoucherStore, [store_id, coupon_id])
     );
     //get any possible error
     if (queryError) {
