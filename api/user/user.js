@@ -15,7 +15,6 @@ const { SqlError, password, auth } = require("../utils");
 const { initiateResetPassword } = require("./helpers");
 const moment = require("moment");
 
-
 module.exports = {
   checkUserExistence: async ({ body: { email } }, res, next) => {
     const [error, result] = await to(
@@ -270,7 +269,7 @@ module.exports = {
     res.json({
       refreshToken,
       accessToken,
-      user,
+      user
     });
   },
 
@@ -925,6 +924,7 @@ module.exports = {
     var purchases = await module.exports.getPreviousPurchasesDB(
       req.params.userId
     );
+
     if (purchases instanceof Error) {
       return res.status(500).json({
         message: purchases
@@ -933,6 +933,84 @@ module.exports = {
     return res.status(200).json({
       purchases: purchases
     });
+  },
+
+  filterCartProductsWithOptions: cart_with_products => {
+    console.log("hello : " + cart_with_products);
+    var filtered_cart = [];
+    var product_ids_visited = [];
+
+    var current_product = {};
+
+    for (product_detail_entry of cart_with_products) {
+      if (!product_ids_visited.includes(product_detail_entry.product_id)) {
+        filtered_cart.push(current_product);
+        product_ids_visited.push(product_detail_entry.product_id);
+        current_product = product_detail_entry;
+      } else {
+        current_product.option_value =
+          current_product.option_value +
+          "," +
+          product_detail_entry.option_value;
+
+        current_product.option_group_name =
+          current_product.option_group_name +
+          "," +
+          product_detail_entry.option_group_name;
+      }
+    }
+
+    //TODO (DO NOT REMOVE THE FIRS ENTRY LIKE THAT)
+
+    filtered_cart.push(current_product);
+
+    filtered_cart = filtered_cart.slice(1);
+
+    return filtered_cart;
+
+    // //get all the product details, option values and option groups for 1 product
+    // for (i = 0; i < cart_with_products.length; i++) {
+    //   //get all the product detail information
+    //   for (var property in cart_with_products[i]) {
+    //     if (property !== "product_id") {
+    //       if (product_id_visited.includes(cart_with_products[i][property])) {
+    //         continue;
+    //       }
+    //     }
+    //     if (property !== "option_value" && property !== "option_group_name") {
+    //       individual_product_details[property] =
+    //         cart_with_products[i][property];
+    //     }
+    //     //loop through the array of values
+    //     else {
+    //       //we loop through the option values and add them to individual product details
+    //       if (property === "option_value") {
+    //         for (var option_value in cart_with_products[i][property]) {
+    //           indiviual_values.push(cart_with_products[i].option_value);
+    //           console.log("stop");
+    //         }
+    //       }
+    //       //we loop through the option group and add them to individual product details
+    //       else {
+    //         for (var option_group in cart_with_products[i][property]) {
+    //           individual_group_names.push(
+    //             cart_with_products[i].option_group_name
+    //           );
+    //         }
+    //       }
+    //     }
+    //   }
+    //   product_id_visited.push(cart_with_products[i]["product_id"]);
+    //   //add the group names and values to the product Details
+    //   individual_product_details["option_values"] = indiviual_values;
+    //   individual_product_details["option_group_names"] = individual_group_names;
+    //
+    //   //add the product details object to the array
+    //   transformed_cart.push(individual_product_details);
+    //   individual_product_details = {};
+    //   var indiviual_values = [];
+    //   var individual_group_names = [];
+    // }
   },
 
   /**
@@ -956,8 +1034,11 @@ module.exports = {
    */
   getPreviousPurchase: async ({ params: { purchaseId } }, res, next) => {
     // Issue query to get details of a customer purchase.
-    let [ queryError, queryResult ] = await to(
-      pool.promiseQuery("call get_details_of_previous_purchase_as_customer(?)", [ purchaseId ])
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery(
+        "call get_details_of_previous_purchase_as_customer(?)",
+        [purchaseId]
+      )
     );
 
     // Forward query error to central error handler.
@@ -966,7 +1047,9 @@ module.exports = {
     }
 
     // Get purchases from query result.
-    const [ purchases ] = queryResult;
+    var [purchases] = queryResult;
+
+    purchases = module.exports.filterCartProductsWithOptions(purchases);
 
     res.json({
       data: purchases
@@ -987,11 +1070,14 @@ module.exports = {
     const [queryError, queryResult] = await to(
       pool.promiseQuery(getPreviousPurchasesDB, [userId])
     );
-    const [resultSet] = queryResult;
+    console.log(queryResult);
+    console.log(queryError);
+
     //get any possible error
     if (queryError) {
       return queryError;
     } else {
+      const [resultSet] = queryResult;
       return resultSet;
     }
   },

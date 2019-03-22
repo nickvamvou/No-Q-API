@@ -254,11 +254,10 @@ module.exports = {
   ) => {
     // Issue query to get details of an order.
     let [queryError, queryResult] = await to(
-      pool.promiseQuery("call get_details_of_previous_purchase_as_retailer(?, ?, ?)", [
-        storeId,
-        orderId,
-        userId
-      ])
+      pool.promiseQuery(
+        "call get_details_of_previous_purchase_as_retailer(?, ?, ?)",
+        [storeId, orderId, userId]
+      )
     );
 
     // Forward query error to central error handler.
@@ -270,6 +269,8 @@ module.exports = {
     var filteredOrder = module.exports.filterPurchaseProductsWithOptions(
       queryResult[0]
     );
+
+    console.log(filteredOrder);
 
     // Order not found? Send down a 404 error.
     if (!filteredOrder) {
@@ -682,8 +683,8 @@ module.exports = {
     // Dish out final result :)
     res.json({
       data: productDetails.map(({ options, ...rest }) => {
-        return ({ ...rest, options: JSON.parse(options) })
-      }),
+        return { ...rest, options: JSON.parse(options) };
+      })
     });
   },
 
@@ -839,7 +840,11 @@ module.exports = {
     next();
   },
 
-  createOrUpdateGroupedOptions: async ({ body: { options = [] } }, res, next) => {
+  createOrUpdateGroupedOptions: async (
+    { body: { options = [] } },
+    res,
+    next
+  ) => {
     const { dbTransactionInstance } = res.locals;
     let optionIds = [];
 
