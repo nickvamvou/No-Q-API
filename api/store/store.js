@@ -681,7 +681,9 @@ module.exports = {
 
     // Dish out final result :)
     res.json({
-      data: productDetails
+      data: productDetails.map(({ options, ...rest }) => {
+        return ({ ...rest, options: JSON.parse(options) })
+      }),
     });
   },
 
@@ -748,7 +750,6 @@ module.exports = {
     res,
     next
   ) => {
-    console.log(userId);
     /* Every query from here on is executed within the database transaction. */
 
     const { dbTransactionInstance, optionIds } = res.locals;
@@ -838,7 +839,7 @@ module.exports = {
     next();
   },
 
-  createOrUpdateGroupedOptions: async ({ body: { options } }, res, next) => {
+  createOrUpdateGroupedOptions: async ({ body: { options = [] } }, res, next) => {
     const { dbTransactionInstance } = res.locals;
     let optionIds = [];
 
