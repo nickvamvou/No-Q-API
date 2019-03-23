@@ -1032,12 +1032,16 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getPreviousPurchase: async ({ params: { purchaseId } }, res, next) => {
+  getPreviousPurchase: async (
+    { params: { purchaseId }, userData: { id: id } },
+    res,
+    next
+  ) => {
     // Issue query to get details of a customer purchase.
     let [queryError, queryResult] = await to(
       pool.promiseQuery(
-        "call get_details_of_previous_purchase_as_customer(?)",
-        [purchaseId]
+        "call get_details_of_previous_purchase_as_customer(?,?)",
+        [purchaseId, id]
       )
     );
 
