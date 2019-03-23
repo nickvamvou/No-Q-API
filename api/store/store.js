@@ -1237,48 +1237,38 @@ module.exports = {
 
     var authorized = true;
     const { dbTransactionInstance } = res.locals;
-    console.log(req.params.storeId);
-    if (authorized) {
-      let voucherCode;
 
-      let percentage;
+    let voucherCode;
 
-      if (req.body.isPercentage) {
-        percentage = 1;
-      } else {
-        percentage = 0;
-      }
+    let percentage;
 
-      var result = await module.exports
-        .addVoucherToShopDB(
-          req.body.value,
-          percentage,
-          req.body.start_date,
-          req.body.end_date,
-          req.body.voucher_code,
-          req.body.max_number_allowed,
-          req.params.storeId,
-          req.userData.id,
-          dbTransactionInstance
-        )
-        .then(voucher_details => {
-          if (voucher_details instanceof Error) {
-            return res.status(500).json({
-              message: "Error with DB connection when trying to add voucher"
-            });
-          } else {
-            res.locals.finalResponse = {
-              message: "Voucher Added",
-              voucher: voucher_details
-            };
-            next();
-          }
-        });
+    if (req.body.isPercentage) {
+      percentage = 1;
     } else {
-      return res.status(401).json({
-        message: "Authentication failed, user has no access in this store"
-      });
+      percentage = 0;
     }
+
+    var result = await module.exports.addVoucherToShopDB(
+      req.body.value,
+      percentage,
+      req.body.start_date,
+      req.body.end_date,
+      req.body.voucher_code,
+      req.body.max_number_allowed,
+      req.params.storeId,
+      req.userData.id,
+      dbTransactionInstance
+    );
+
+    if (result instanceof Error) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+      return next(createHttpError(500, result));
+    }
+    res.locals.finalResponse = {
+      message: "Voucher Added",
+      voucher: result
+    };
+    next();
   },
 
   //gets the vouchers of a particular shop based on the shop id
@@ -1723,10 +1713,8 @@ module.exports = {
     }
 
     if (queryError) {
-      await dbTransactionInstance.rollbackAndReleaseConn();
       return queryError;
     }
-    console.log(queryResult);
     const [resultSet] = queryResult;
 
     var result = await module.exports.createStoreCouponConnection(
@@ -1736,7 +1724,6 @@ module.exports = {
     );
 
     if (result instanceof Error) {
-      await dbTransactionInstance.rollbackAndReleaseConn();
       return result;
     }
     return resultSet;

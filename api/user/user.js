@@ -39,25 +39,6 @@ module.exports = {
     next();
   },
 
-  deleteActiveCart: async (cart_id, dbTransactionInstance) => {
-    const deleteActiveCartDB = "CALL delete_active_cart(?)";
-
-    let [queryError, queryResult] = await to(
-      dbTransactionInstance.query(deleteActiveCartDB, [cart_id])
-    );
-
-    //get any possible error
-    if (queryError) {
-      return queryError;
-    } else {
-      if (queryResult.affectedRows === 0) {
-        return new Error("Cart not found");
-      }
-      console.log();
-      return;
-    }
-  },
-
   createHashedPass: async (
     { body: { password: plainTextPass } },
     res,
