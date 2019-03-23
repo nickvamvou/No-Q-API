@@ -13,6 +13,104 @@ const DB_EMPTY_RESPONSE = -2;
 module.exports = {
   DB_ERROR,
 
+  //accepts cart_id and card_id and creates a payment for
+  payForCart: async ({ body: { cart_id, card_id } }, res, next) => {
+    const { dbTransactionInstance } = res.locals;
+
+    var cartDeletion = await module.exports.deleteActiveCart(
+      cart_id,
+      dbTransactionInstance
+    );
+
+    //there was a problem deleting the cart
+    if (cartDeletion instanceof Error) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+      return res.status(500).json({
+        message: "Error when deleting active cart"
+      });
+    }
+
+    //cart is deleted
+    //create payment and retrieve the payment id
+    var payment_id = await module.exports.createPayment(
+      card_id,
+      dbTransactionInstance
+    );
+
+    if (payment_id instanceof Error) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+      return res.status(500).json({
+        message: payment_id
+      });
+    }
+
+    //create a purchase based on the payment
+    var purchase_id = await module.exports.createPurchase(
+      payment_id,
+      cart_id,
+      dbTransactionInstance
+    );
+
+    if (purchase_id instanceof Error) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+      return res.status(500).json({
+        message: purchase_id
+      });
+    }
+
+    // Pass final response object to DB transaction middleware.
+    res.locals.finalResponse = {
+      message: "Purchase completed",
+      data: {
+        purchase_id: purchase_id
+      }
+    };
+
+    next();
+  },
+
+  createPurchase: async (payment_id, cart_id, dbTransactionInstance) => {
+    const createPurchaseProcedure = "CALL create_purchase(?,?,?)";
+    var purchaseTime = moment(new Date())
+      .format("YYYY/MM/DD hh:mm:ss")
+      .toString();
+    let [queryError, queryResult] = await to(
+      dbTransactionInstance.query(createPurchaseProcedure, [
+        purchaseTime,
+        payment_id,
+        cart_id
+      ])
+    );
+
+    if (queryError) {
+      return queryError;
+    } else if (queryResult.length === 0) {
+      return new Error();
+    } else {
+      const [resultSet] = queryResult;
+      const [id] = resultSet;
+      return id.id;
+    }
+  },
+
+  createPayment: async (card_id, dbTransactionInstance) => {
+    const createPaymentProcedure = "CALL create_payment(?)";
+    let [queryError, queryResult] = await to(
+      dbTransactionInstance.query(createPaymentProcedure, [card_id])
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    } else if (queryResult.length === 0) {
+      return new Error();
+    } else {
+      const [resultSet] = queryResult;
+      const [id] = resultSet;
+      return id.id;
+    }
+  },
+
   getCompletedOrder: (req, res, next) => {
     var authorized = checkAuthorization(
       req.params.userId,

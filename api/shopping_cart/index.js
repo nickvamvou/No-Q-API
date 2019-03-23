@@ -48,6 +48,14 @@ router.delete(
   orderController.deleteVoucherFromCart
 );
 
+router.post(
+  "/:userId/pay",
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  dbTransactionMiddleware.startDbTransaction,
+  userController.payForCart,
+  dbTransactionMiddleware.endDbTransaction
+);
+
 //Needs modification
 //this endpoint is called from doors and must be kept private
 //userId is the door id
