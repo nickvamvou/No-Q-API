@@ -15,6 +15,7 @@ const { SqlError, password, auth } = require("../utils");
 const { initiateResetPassword } = require("./helpers");
 const moment = require("moment");
 
+
 module.exports = {
   checkUserExistence: async ({ body: { email } }, res, next) => {
     const [error, result] = await to(
@@ -269,7 +270,7 @@ module.exports = {
     res.json({
       refreshToken,
       accessToken,
-      user
+      user,
     });
   },
 
@@ -1032,13 +1033,10 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getPreviousPurchase: async ({ params: { purchaseId } }, res, next) => {
+  getPreviousPurchase: async ({ params: { purchaseId }, userData: { id: userId } }, res, next) => {
     // Issue query to get details of a customer purchase.
-    let [queryError, queryResult] = await to(
-      pool.promiseQuery(
-        "call get_details_of_previous_purchase_as_customer(?)",
-        [purchaseId]
-      )
+    let [ queryError, queryResult ] = await to(
+      pool.promiseQuery("call get_details_of_previous_purchase_as_customer(?, ?)", [ purchaseId, userId ])
     );
 
     // Forward query error to central error handler.
@@ -1047,9 +1045,13 @@ module.exports = {
     }
 
     // Get purchases from query result.
-    var [purchases] = queryResult;
+    let [purchases] = queryResult;
 
     purchases = module.exports.filterCartProductsWithOptions(purchases);
+
+    if (!purchases.length) {
+      return next(createHttpError(404, 'Purchase was not found'));
+    }
 
     res.json({
       data: purchases
@@ -1070,14 +1072,11 @@ module.exports = {
     const [queryError, queryResult] = await to(
       pool.promiseQuery(getPreviousPurchasesDB, [userId])
     );
-    console.log(queryResult);
-    console.log(queryError);
-
+    const [resultSet] = queryResult;
     //get any possible error
     if (queryError) {
       return queryError;
     } else {
-      const [resultSet] = queryResult;
       return resultSet;
     }
   },
