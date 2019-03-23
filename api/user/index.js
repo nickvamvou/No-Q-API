@@ -4,6 +4,7 @@ const role = require("./user-role");
 const userController = require("./user");
 const checkAuth = require("../middleware/check-auth");
 const retailerPath = require("../../config/private_routes");
+const { dbTransactionMiddleware } = require("../middleware");
 
 // Sign up a Shopper
 router.post(
@@ -164,6 +165,14 @@ router.get(
   "/:userId/addVoucher",
   // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.addVoucherToUser
+);
+
+router.post(
+  "/:userId/pay",
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  dbTransactionMiddleware.startDbTransaction,
+  userController.payForCart,
+  dbTransactionMiddleware.endDbTransaction
 );
 
 module.exports = router;
