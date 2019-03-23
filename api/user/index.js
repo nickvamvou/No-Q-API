@@ -167,12 +167,4 @@ router.get(
   userController.addVoucherToUser
 );
 
-router.post(
-  "/:userId/pay",
-  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
-  dbTransactionMiddleware.startDbTransaction,
-  userController.payForCart,
-  dbTransactionMiddleware.endDbTransaction
-);
-
 module.exports = router;

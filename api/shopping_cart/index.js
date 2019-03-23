@@ -52,7 +52,7 @@ router.post(
   "/:userId/pay",
   checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   dbTransactionMiddleware.startDbTransaction,
-  userController.payForCart,
+  orderController.payForCart,
   dbTransactionMiddleware.endDbTransaction
 );
 
