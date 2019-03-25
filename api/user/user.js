@@ -408,6 +408,18 @@ module.exports = {
       });
     }
   },
+  // getStores: async (req, res, next) => {
+  //   const getStoresFromDB = "CALL get_all_stores(?, ?)";
+  //
+  //   const [queryError, queryResult] = await to(
+  //     pool.promiseQuery(deleteProductFromUserCartDB, [product_id, cart_id])
+  //   );
+  //   //get any possible error
+  //   if (queryError) {
+  //     return queryError;
+  //   }
+  //   return queryResult;
+  // },
 
   /**
    *

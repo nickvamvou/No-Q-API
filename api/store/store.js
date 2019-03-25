@@ -121,19 +121,19 @@ module.exports = {
   getAllStores: (req, res, next) => {
     //retrieve all stores with their information
     //NO NEED TO CHECK FOR ADMIN
-    var allStores = "CALL all_stores(?)";
+    var allStores = "CALL get_all_stores";
     pool.query(allStores, (err, result) => {
       if (err) {
         res.status(500).json({
           message: err
         });
-      } else if (result[0].length == 0) {
-        res.status(200).json({
-          message: "There are no stores in database"
+      } else if (result[0].length === 0) {
+        res.status(500).json({
+          message: "No shops found"
         });
       } else {
         res.status(200).json({
-          storeIds: result[0][0].store_id
+          shops: result[0]
         });
       }
     });

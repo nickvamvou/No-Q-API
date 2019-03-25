@@ -30,7 +30,11 @@ router.delete(
 );
 
 // Retrieves all stores
-router.get("/", checkAuth.userAuth([role.ADMIN]), storeController.getAllStores);
+router.get(
+  "/getAllStores",
+  checkAuth.userAuth([role.ADMIN, role.SHOPPER]),
+  storeController.getAllStores
+);
 
 // Retrieve all stores from specifc user
 router.get(
