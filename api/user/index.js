@@ -156,7 +156,7 @@ router.get(
 );
 
 router.get(
-  "/:userId/purchases/:purchaseId",
+  "/me/purchases/:purchaseId",
   checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getPreviousPurchase
 );
