@@ -1073,8 +1073,8 @@ module.exports = {
     }
 
     // Issue query to get details of a customer purchase.
-    [ queryError, queryResult ] = await to(
-      pool.promiseQuery("call get_customer_details_by_id(?)", [ userId ])
+    [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_customer_details_by_id(?)", [id])
     );
 
     // Forward query error to central error handler.
@@ -1083,12 +1083,12 @@ module.exports = {
     }
 
     // Get purchases from query result.
-    let [[ customer ]] = queryResult;
+    let [[customer]] = queryResult;
 
     res.json({
       data: {
         customer,
-        purchases,
+        purchases
       }
     });
   },
