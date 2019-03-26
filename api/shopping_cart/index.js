@@ -5,6 +5,8 @@ const orderController = require("./shopping_cart");
 const checkAuth = require("../middleware/check-auth");
 const role = require("../user/user-role");
 const { dbTransactionMiddleware } = require("../middleware");
+//add product to user shopping cart
+
 router.get(
   "/:storeId/product/:barcode",
   orderController.getProductInformationBasedOnBarcode
@@ -19,6 +21,14 @@ router.post(
   dbTransactionMiddleware.endDbTransaction
 );
 
+router.post(
+  "/:userId/active_cart",
+  checkAuth.userAuth([role.SHOPPER]),
+  dbTransactionMiddleware.startDbTransaction,
+  orderController.getCartIDWithCartProductInformation,
+  dbTransactionMiddleware.endDbTransaction
+);
+
 // TODO REMOVE COMMEN IN LINE 20 (authorization)
 //remove product from order
 router.delete(
@@ -26,14 +36,6 @@ router.delete(
   // checkAuth.userAuth([role.SHOPPER]),
   orderController.removeProductFromCartByBarcode
 );
-
-router.post(
-  "/:userId/active_cart",
-  // checkAuth.userAuth([role.SHOPPER]),
-  orderController.getCartIDWithCartProductInformation
-);
-
-//add product to user shopping cart
 
 router.post(
   "/:userId/addVoucher",
@@ -46,6 +48,14 @@ router.delete(
   "/:userId/deleteVoucher",
   checkAuth.userAuth([role.SHOPPER]),
   orderController.deleteVoucherFromCart
+);
+
+router.post(
+  "/:userId/pay",
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  dbTransactionMiddleware.startDbTransaction,
+  orderController.payForCart,
+  dbTransactionMiddleware.endDbTransaction
 );
 
 //Needs modification

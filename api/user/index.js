@@ -4,6 +4,7 @@ const role = require("./user-role");
 const userController = require("./user");
 const checkAuth = require("../middleware/check-auth");
 const retailerPath = require("../../config/private_routes");
+const { dbTransactionMiddleware } = require("../middleware");
 
 // Sign up a Shopper
 router.post(
@@ -155,7 +156,7 @@ router.get(
 );
 
 router.get(
-  "/:userId/purchases/:purchaseId",
+  "/me/purchases/:purchaseId",
   checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getPreviousPurchase
 );

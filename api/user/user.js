@@ -15,7 +15,6 @@ const { SqlError, password, auth } = require("../utils");
 const { initiateResetPassword } = require("./helpers");
 const moment = require("moment");
 
-
 module.exports = {
   checkUserExistence: async ({ body: { email } }, res, next) => {
     const [error, result] = await to(
@@ -270,7 +269,7 @@ module.exports = {
     res.json({
       refreshToken,
       accessToken,
-      user,
+      user
     });
   },
 
@@ -409,6 +408,18 @@ module.exports = {
       });
     }
   },
+  // getStores: async (req, res, next) => {
+  //   const getStoresFromDB = "CALL get_all_stores(?, ?)";
+  //
+  //   const [queryError, queryResult] = await to(
+  //     pool.promiseQuery(deleteProductFromUserCartDB, [product_id, cart_id])
+  //   );
+  //   //get any possible error
+  //   if (queryError) {
+  //     return queryError;
+  //   }
+  //   return queryResult;
+  // },
 
   /**
    *
@@ -1033,10 +1044,18 @@ module.exports = {
    * @param `next` [Function] - Express's forwarding function for moving to next handler or middleware.
    *
    */
-  getPreviousPurchase: async ({ params: { purchaseId }, userData: { id: userId } }, res, next) => {
+
+  getPreviousPurchase: async (
+    { params: { purchaseId }, userData: { id: id } },
+    res,
+    next
+  ) => {
     // Issue query to get details of a customer purchase.
-    let [ queryError, queryResult ] = await to(
-      pool.promiseQuery("call get_details_of_previous_purchase_as_customer(?, ?)", [ purchaseId, userId ])
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery(
+        "call get_details_of_previous_purchase_as_customer(?,?)",
+        [purchaseId, id]
+      )
     );
 
     // Forward query error to central error handler.
@@ -1050,11 +1069,27 @@ module.exports = {
     purchases = module.exports.filterCartProductsWithOptions(purchases);
 
     if (!purchases.length) {
-      return next(createHttpError(404, 'Purchase was not found'));
+      return next(createHttpError(404, "Purchase was not found"));
     }
 
+    // Issue query to get details of a customer purchase.
+    [ queryError, queryResult ] = await to(
+      pool.promiseQuery("call get_customer_details_by_id(?)", [ userId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get purchases from query result.
+    let [[ customer ]] = queryResult;
+
     res.json({
-      data: purchases
+      data: {
+        customer,
+        purchases,
+      }
     });
   },
 

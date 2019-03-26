@@ -121,19 +121,19 @@ module.exports = {
   getAllStores: (req, res, next) => {
     //retrieve all stores with their information
     //NO NEED TO CHECK FOR ADMIN
-    var allStores = "CALL all_stores(?)";
+    var allStores = "CALL get_all_stores";
     pool.query(allStores, (err, result) => {
       if (err) {
         res.status(500).json({
           message: err
         });
-      } else if (result[0].length == 0) {
-        res.status(200).json({
-          message: "There are no stores in database"
+      } else if (result[0].length === 0) {
+        res.status(500).json({
+          message: "No shops found"
         });
       } else {
         res.status(200).json({
-          storeIds: result[0][0].store_id
+          shops: result[0]
         });
       }
     });
@@ -248,7 +248,7 @@ module.exports = {
    *
    */
   getStoreOrder: async (
-    { params: { storeId, orderId }, userData: { id: userId } },
+    { params: { storeId, orderId }, query: { customerId }, userData: { id: userId } },
     res,
     next
   ) => {
@@ -266,20 +266,34 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    var filteredOrder = module.exports.filterPurchaseProductsWithOptions(
+    const order = module.exports.filterPurchaseProductsWithOptions(
       queryResult[0]
     );
 
-    console.log(filteredOrder);
-
     // Order not found? Send down a 404 error.
-    if (!filteredOrder) {
+    if (!order) {
       return next(createHttpError(404, "Order not found"));
     }
 
+    // Issue query to get details of a customer purchase.
+    [ queryError, queryResult ] = await to(
+      pool.promiseQuery("call get_customer_details_by_id(?)", [ customerId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get purchases from query result.
+    let [[ customer ]] = queryResult;
+
     // Return order
     res.json({
-      data: filteredOrder
+      data: {
+        customer,
+        order,
+      }
     });
   },
 
@@ -1237,48 +1251,38 @@ module.exports = {
 
     var authorized = true;
     const { dbTransactionInstance } = res.locals;
-    console.log(req.params.storeId);
-    if (authorized) {
-      let voucherCode;
 
-      let percentage;
+    let voucherCode;
 
-      if (req.body.isPercentage) {
-        percentage = 1;
-      } else {
-        percentage = 0;
-      }
+    let percentage;
 
-      var result = await module.exports
-        .addVoucherToShopDB(
-          req.body.value,
-          percentage,
-          req.body.start_date,
-          req.body.end_date,
-          req.body.voucher_code,
-          req.body.max_number_allowed,
-          req.params.storeId,
-          req.userData.id,
-          dbTransactionInstance
-        )
-        .then(voucher_details => {
-          if (voucher_details instanceof Error) {
-            return res.status(500).json({
-              message: "Error with DB connection when trying to add voucher"
-            });
-          } else {
-            res.locals.finalResponse = {
-              message: "Voucher Added",
-              voucher: voucher_details
-            };
-            next();
-          }
-        });
+    if (req.body.isPercentage) {
+      percentage = 1;
     } else {
-      return res.status(401).json({
-        message: "Authentication failed, user has no access in this store"
-      });
+      percentage = 0;
     }
+
+    var result = await module.exports.addVoucherToShopDB(
+      req.body.value,
+      percentage,
+      req.body.start_date,
+      req.body.end_date,
+      req.body.voucher_code,
+      req.body.max_number_allowed,
+      req.params.storeId,
+      req.userData.id,
+      dbTransactionInstance
+    );
+
+    if (result instanceof Error) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+      return next(createHttpError(500, result));
+    }
+    res.locals.finalResponse = {
+      message: "Voucher Added",
+      voucher: result
+    };
+    next();
   },
 
   //gets the vouchers of a particular shop based on the shop id
@@ -1489,61 +1493,22 @@ module.exports = {
    */
 
   deleteVoucherFromShop: async (req, res, next) => {
-    //TODO uncomment authorization
-    // //authorization if store id is managed from user id
-    // var authorized = module.exports
-    //   .checkAuthorization(
-    //     req.userData.id,
-    //     req.userData.role,
-    //     req.params.storeId
-    //   )
+    var voucherId = req.params.voucherId;
 
-    var authorized = true;
+    var deleted = await module.exports.makeCouponUnredeemable(
+      voucherId,
+      req.params.storeId,
+      req.userData.id
+    );
 
-    if (authorized) {
-      //check if voucher exists in store
-      await module.exports
-        .checkVoucherExistenceAndRedeemability(
-          req.params.voucherId,
-          req.params.storeId,
-          req.userData.id
-        )
-        .then(async voucher_id => {
-          //if its reaches in this point of the execution then we can delete the voucher from the store
-          try {
-            //make coupon unredeemable
-            await module.exports.makeCouponUnredeemable(voucher_id);
-            console.log("Finished");
-            return res.status(200).json({
-              message: "Voucher deleted successfully"
-            });
-          } catch (err) {
-            return res.status(500).json({
-              message: "Error when trying to make coupon unredeemable"
-            });
-          }
-        })
-        .catch(err => {
-          if (err === 0) {
-            return res.status(500).json({
-              message:
-                "Error with DB when trying to delete voucher after checking that the voucher exists"
-            });
-          } else if (err === 1) {
-            return res.status(404).json({
-              message: "Voucher was not found"
-            });
-          } else if (err === 2) {
-            return res.status(404).json({
-              message: "Voucher is already deleted-unredeemable"
-            });
-          }
-        });
-    } else {
-      return res.status(401).json({
-        message: "Authentication failed, user has no access in this store"
+    if (deleted instanceof Error) {
+      return res.status(500).json({
+        message: "Error could not delete coupon"
       });
     }
+    return res.status(200).json({
+      message: "Voucher deleted successfully"
+    });
   },
 
   deleteVoucherCode: (req, res, next) => {},
@@ -1723,10 +1688,8 @@ module.exports = {
     }
 
     if (queryError) {
-      await dbTransactionInstance.rollbackAndReleaseConn();
       return queryError;
     }
-    console.log(queryResult);
     const [resultSet] = queryResult;
 
     var result = await module.exports.createStoreCouponConnection(
@@ -1736,7 +1699,6 @@ module.exports = {
     );
 
     if (result instanceof Error) {
-      await dbTransactionInstance.rollbackAndReleaseConn();
       return result;
     }
     return resultSet;
@@ -1780,18 +1742,27 @@ module.exports = {
     }));
   },
 
-  makeCouponUnredeemable: async couponId => {
-    var updateCouponRedeemability = "CALL update_coupon_redeemable(?)";
-    await new Promise((resolve, reject) => {
-      pool.query(updateCouponRedeemability, [couponId], (err, result) => {
-        if (err) {
-          reject();
-        } else {
-          console.log("Starts");
-          //the coupon was successfuly made unredeemable
-          resolve();
-        }
-      });
-    });
+  makeCouponUnredeemable: async (couponId, storeId, retailerId) => {
+    const updateCouponRedeemability = "CALL update_coupon_redeemable(?, ?, ?)";
+
+    const [queryError, queryResult] = await to(
+      pool.promiseQuery(updateCouponRedeemability, [
+        couponId,
+        storeId,
+        retailerId
+      ])
+    );
+
+    //get any possible error
+    if (queryError) {
+      console.log(queryError);
+      return queryError;
+    }
+    console.log(queryResult);
+    if (queryResult.affectedRows === 0) {
+      return new Error();
+    } else {
+      return;
+    }
   }
 };
