@@ -1072,8 +1072,24 @@ module.exports = {
       return next(createHttpError(404, "Purchase was not found"));
     }
 
+    // Issue query to get details of a customer purchase.
+    [ queryError, queryResult ] = await to(
+      pool.promiseQuery("call get_customer_details_by_id(?)", [ userId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get purchases from query result.
+    let [[ customer ]] = queryResult;
+
     res.json({
-      data: purchases
+      data: {
+        customer,
+        purchases,
+      }
     });
   },
 
