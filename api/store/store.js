@@ -248,7 +248,7 @@ module.exports = {
    *
    */
   getStoreOrder: async (
-    { params: { storeId, orderId }, userData: { id: userId } },
+    { params: { storeId, orderId }, query: { customerId }, userData: { id: userId } },
     res,
     next
   ) => {
@@ -266,20 +266,34 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    var filteredOrder = module.exports.filterPurchaseProductsWithOptions(
+    const order = module.exports.filterPurchaseProductsWithOptions(
       queryResult[0]
     );
 
-    console.log(filteredOrder);
-
     // Order not found? Send down a 404 error.
-    if (!filteredOrder) {
+    if (!order) {
       return next(createHttpError(404, "Order not found"));
     }
 
+    // Issue query to get details of a customer purchase.
+    [ queryError, queryResult ] = await to(
+      pool.promiseQuery("call get_customer_details_by_id(?)", [ customerId ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get purchases from query result.
+    let [[ customer ]] = queryResult;
+
     // Return order
     res.json({
-      data: filteredOrder
+      data: {
+        customer,
+        order,
+      }
     });
   },
 
