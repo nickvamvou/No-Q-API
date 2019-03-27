@@ -1046,7 +1046,7 @@ module.exports = {
    */
 
   getPreviousPurchase: async (
-    { params: { purchaseId }, userData: { id: id } },
+    { params: { purchaseId }, userData: { id: customerId } },
     res,
     next
   ) => {
@@ -1064,32 +1064,10 @@ module.exports = {
     }
 
     // Get purchases from query result.
-    let [purchases] = queryResult;
-
-    purchases = module.exports.filterCartProductsWithOptions(purchases);
-
-    if (!purchases.length) {
-      return next(createHttpError(404, "Purchase was not found"));
-    }
-
-    // Issue query to get details of a customer purchase.
-    [queryError, queryResult] = await to(
-      pool.promiseQuery("call get_customer_details_by_id(?)", [id])
-    );
-
-    // Forward query error to central error handler.
-    if (queryError) {
-      return next(createHttpError(new SqlError(queryError)));
-    }
-
-    // Get purchases from query result.
-    let [[customer]] = queryResult;
+    let [{ purchase }] = queryResult;
 
     res.json({
-      data: {
-        customer,
-        purchases
-      }
+      data: purchase
     });
   },
 
