@@ -1005,7 +1005,6 @@ module.exports = {
     res,
     next
   ) => {
-    console.log("hello");
     // Issue query to get all scanned unpaid products.
     let [queryError, queryResult] = await to(
       pool.promiseQuery("call get_current_scanned_items(?, ?)", [
