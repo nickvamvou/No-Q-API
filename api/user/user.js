@@ -1054,7 +1054,7 @@ module.exports = {
     let [queryError, queryResult] = await to(
       pool.promiseQuery(
         "call get_details_of_previous_purchase_as_customer(?,?)",
-        [purchaseId, id]
+        [purchaseId, customerId]
       )
     );
 
