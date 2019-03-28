@@ -1046,7 +1046,7 @@ module.exports = {
    */
 
   getPreviousPurchase: async (
-    { params: { purchaseId }, userData: { id: id } },
+    { params: { purchaseId }, userData: { id: customerId } },
     res,
     next
   ) => {
@@ -1054,7 +1054,7 @@ module.exports = {
     let [queryError, queryResult] = await to(
       pool.promiseQuery(
         "call get_details_of_previous_purchase_as_customer(?,?)",
-        [purchaseId, id]
+        [purchaseId, customerId]
       )
     );
 
