@@ -265,11 +265,11 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    const [[ order ]] = queryResult;
+    const [[ { products, ...rest } ]] = queryResult;
 
     // Return order
     res.json({
-      data: order,
+      data: { ...rest, products: JSON.parse(products) },
     });
   },
 
