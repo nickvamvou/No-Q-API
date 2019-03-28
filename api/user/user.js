@@ -1064,7 +1064,7 @@ module.exports = {
     }
 
     // Get purchases from query result.
-    let [{ purchase }] = queryResult;
+    let [[ purchase ]] = queryResult;
 
     res.json({
       data: purchase
