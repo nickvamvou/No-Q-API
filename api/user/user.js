@@ -1063,11 +1063,16 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    // Get purchases from query result.
-    let [[ purchase ]] = queryResult;
+    const [rows] = queryResult;
+
+    if (!rows.length) {
+      return next(createHttpError(404, 'Purchase not found'));
+    }
+
+    const [ { products, ...rest } ] = rows;
 
     res.json({
-      data: purchase
+      data: { ...rest, products: JSON.parse(products) },
     });
   },
 
