@@ -265,7 +265,14 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    const [[ { products, ...rest } ]] = queryResult;
+    const [rows] = queryResult;
+
+    if (!rows.length) {
+      return next(createHttpError(404, 'Order not found'));
+    }
+
+    const [ { products, ...rest } ] = rows;
+
 
     // Return order
     res.json({
