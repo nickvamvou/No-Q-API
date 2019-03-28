@@ -1046,7 +1046,7 @@ module.exports = {
    */
 
   getPreviousPurchase: async (
-    { params: { purchaseId }, userData: { id: id } },
+    { params: { purchaseId }, userData: { id: customerId } },
     res,
     next
   ) => {
@@ -1054,7 +1054,7 @@ module.exports = {
     let [queryError, queryResult] = await to(
       pool.promiseQuery(
         "call get_details_of_previous_purchase_as_customer(?,?)",
-        [purchaseId, id]
+        [purchaseId, customerId]
       )
     );
 
@@ -1063,33 +1063,16 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    // Get purchases from query result.
-    let [purchases] = queryResult;
+    const [rows] = queryResult;
 
-    purchases = module.exports.filterCartProductsWithOptions(purchases);
-
-    if (!purchases.length) {
-      return next(createHttpError(404, "Purchase was not found"));
+    if (!rows.length) {
+      return next(createHttpError(404, 'Purchase not found'));
     }
 
-    // Issue query to get details of a customer purchase.
-    [ queryError, queryResult ] = await to(
-      pool.promiseQuery("call get_customer_details_by_id(?)", [ userId ])
-    );
-
-    // Forward query error to central error handler.
-    if (queryError) {
-      return next(createHttpError(new SqlError(queryError)));
-    }
-
-    // Get purchases from query result.
-    let [[ customer ]] = queryResult;
+    const [ { products, ...rest } ] = rows;
 
     res.json({
-      data: {
-        customer,
-        purchases,
-      }
+      data: { ...rest, products: JSON.parse(products) },
     });
   },
 

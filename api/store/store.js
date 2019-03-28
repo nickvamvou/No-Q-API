@@ -248,7 +248,7 @@ module.exports = {
    *
    */
   getStoreOrder: async (
-    { params: { storeId, orderId }, query: { customerId }, userData: { id: userId } },
+    { params: { storeId, orderId }, userData: { id: userId } },
     res,
     next
   ) => {
@@ -262,38 +262,21 @@ module.exports = {
 
     // Forward query error to central error handler.
     if (queryError) {
-      console.log(queryError);
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    const order = module.exports.filterPurchaseProductsWithOptions(
-      queryResult[0]
-    );
+    const [rows] = queryResult;
 
-    // Order not found? Send down a 404 error.
-    if (!order) {
-      return next(createHttpError(404, "Order not found"));
+    if (!rows.length) {
+      return next(createHttpError(404, 'Order not found'));
     }
 
-    // Issue query to get details of a customer purchase.
-    [ queryError, queryResult ] = await to(
-      pool.promiseQuery("call get_customer_details_by_id(?)", [ customerId ])
-    );
+    const [ { products, ...rest } ] = rows;
 
-    // Forward query error to central error handler.
-    if (queryError) {
-      return next(createHttpError(new SqlError(queryError)));
-    }
-
-    // Get purchases from query result.
-    let [[ customer ]] = queryResult;
 
     // Return order
     res.json({
-      data: {
-        customer,
-        order,
-      }
+      data: { ...rest, products: JSON.parse(products) },
     });
   },
 
@@ -1029,7 +1012,6 @@ module.exports = {
     res,
     next
   ) => {
-    console.log("hello");
     // Issue query to get all scanned unpaid products.
     let [queryError, queryResult] = await to(
       pool.promiseQuery("call get_current_scanned_items(?, ?)", [
