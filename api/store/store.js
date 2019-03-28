@@ -248,7 +248,7 @@ module.exports = {
    *
    */
   getStoreOrder: async (
-    { params: { storeId, orderId }, query: { customerId }, userData: { id: userId } },
+    { params: { storeId, orderId }, userData: { id: userId } },
     res,
     next
   ) => {
