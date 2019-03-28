@@ -132,20 +132,20 @@ router.post("/:userId/addVoucher", userController.addVoucher);
 //update users details
 router.patch(
   "/:userId/editDetails",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.updateUserDetails
 );
 
 //returns the details of the user (firstname, lastname, dob)
 router.get(
   "/:userId/details",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getUserDetails
 );
 
 router.get(
   "/:userId/getVouchers",
-  // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.getUserVouchers
 );
 
