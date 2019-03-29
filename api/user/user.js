@@ -13,6 +13,7 @@ const jwt = require("jsonwebtoken");
 const key = require("../../config/jwt_s_key");
 const { SqlError, password, auth } = require("../utils");
 const { initiateResetPassword } = require("./helpers");
+const { filterPurchaseProductsWithOptions } = require('../store/store');
 const moment = require("moment");
 
 module.exports = {
@@ -1072,7 +1073,7 @@ module.exports = {
     const [ { products, ...rest } ] = rows;
 
     res.json({
-      data: { ...rest, products: JSON.parse(products) },
+      data: { ...rest, products: filterPurchaseProductsWithOptions(JSON.parse(products)) },
     });
   },
 
