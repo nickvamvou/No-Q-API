@@ -273,10 +273,9 @@ module.exports = {
 
     const [ { products, ...rest } ] = rows;
 
-
     // Return order
     res.json({
-      data: { ...rest, products: JSON.parse(products) },
+      data: { ...rest, products: module.exports.filterPurchaseProductsWithOptions(JSON.parse(products)) },
     });
   },
 
