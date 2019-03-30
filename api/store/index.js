@@ -30,11 +30,7 @@ router.delete(
 );
 
 // Retrieves all stores
-router.get(
-  "/getAllStores",
-
-  storeController.getAllStores
-);
+router.get("/getAllStores", storeController.getAllStores);
 
 // Retrieve all stores from specifc user
 router.get(

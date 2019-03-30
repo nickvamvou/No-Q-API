@@ -171,7 +171,9 @@ module.exports = {
       if (resultSet.length === 0) {
         return new Error(500);
       } else {
-        return module.exports.filterCartProductsWithOptions(resultSet);
+        return module.exports.filterCartProductsWithOptionsBeforeLogin(
+          resultSet
+        );
       }
     }
   },
@@ -545,6 +547,43 @@ module.exports = {
 
   //TODO MAKE IT MORE OPTIMIZED - EFFICENT WITH THE QUERY - works in a hacky way
   /*
+    Filter cart with product options. Gets a cart with product and filters it based on the options. Only returns one product
+  */
+  filterCartProductsWithOptionsBeforeLogin: cart_with_products => {
+    var filtered_cart = [];
+    var product_ids_visited = [];
+
+    var current_product = {};
+
+    for (product_detail_entry of cart_with_products) {
+      if (!product_ids_visited.includes(product_detail_entry.product_id)) {
+        filtered_cart.push(current_product);
+        product_ids_visited.push(product_detail_entry.product_id);
+        current_product = product_detail_entry;
+      } else {
+        current_product.option_value =
+          current_product.option_value +
+          "," +
+          product_detail_entry.option_value;
+
+        current_product.option_group_name =
+          current_product.option_group_name +
+          "," +
+          product_detail_entry.option_group_name;
+      }
+    }
+
+    //TODO (DO NOT REMOVE THE FIRS ENTRY LIKE THAT)
+
+    // filtered_cart.push(current_product);
+    //
+    // filtered_cart = filtered_cart.slice(1);
+
+    return current_product;
+  },
+
+  //TODO MAKE IT MORE OPTIMIZED - EFFICENT WITH THE QUERY - works in a hacky way
+  /*
     Filter cart with product options. Gets a cart with product and filters it based on the options
   */
   filterCartProductsWithOptions: cart_with_products => {
@@ -578,50 +617,6 @@ module.exports = {
     filtered_cart = filtered_cart.slice(1);
 
     return filtered_cart;
-
-    // //get all the product details, option values and option groups for 1 product
-    // for (i = 0; i < cart_with_products.length; i++) {
-    //   //get all the product detail information
-    //   for (var property in cart_with_products[i]) {
-    //     if (property !== "product_id") {
-    //       if (product_id_visited.includes(cart_with_products[i][property])) {
-    //         continue;
-    //       }
-    //     }
-    //     if (property !== "option_value" && property !== "option_group_name") {
-    //       individual_product_details[property] =
-    //         cart_with_products[i][property];
-    //     }
-    //     //loop through the array of values
-    //     else {
-    //       //we loop through the option values and add them to individual product details
-    //       if (property === "option_value") {
-    //         for (var option_value in cart_with_products[i][property]) {
-    //           indiviual_values.push(cart_with_products[i].option_value);
-    //           console.log("stop");
-    //         }
-    //       }
-    //       //we loop through the option group and add them to individual product details
-    //       else {
-    //         for (var option_group in cart_with_products[i][property]) {
-    //           individual_group_names.push(
-    //             cart_with_products[i].option_group_name
-    //           );
-    //         }
-    //       }
-    //     }
-    //   }
-    //   product_id_visited.push(cart_with_products[i]["product_id"]);
-    //   //add the group names and values to the product Details
-    //   individual_product_details["option_values"] = indiviual_values;
-    //   individual_product_details["option_group_names"] = individual_group_names;
-    //
-    //   //add the product details object to the array
-    //   transformed_cart.push(individual_product_details);
-    //   individual_product_details = {};
-    //   var indiviual_values = [];
-    //   var individual_group_names = [];
-    // }
   },
 
   /*
