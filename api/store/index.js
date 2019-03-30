@@ -32,7 +32,7 @@ router.delete(
 // Retrieves all stores
 router.get(
   "/getAllStores",
-  checkAuth.userAuth([role.ADMIN, role.SHOPPER]),
+
   storeController.getAllStores
 );
 
