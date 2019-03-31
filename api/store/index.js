@@ -141,6 +141,12 @@ router.post(
   dbTransactionMiddleware.endDbTransaction
 );
 
+router.patch(
+  "/:storeId/itemGroups/:itemGroupId/:productDetailId/edit",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  storeController.updateProductDetails
+);
+
 // Get all scanned unpaid products
 router.get(
   "/:storeId/scannedUnpaidProducts",

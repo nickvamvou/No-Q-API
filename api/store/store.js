@@ -268,14 +268,19 @@ module.exports = {
     const [rows] = queryResult;
 
     if (!rows.length) {
-      return next(createHttpError(404, 'Order not found'));
+      return next(createHttpError(404, "Order not found"));
     }
 
-    const [ { products, ...rest } ] = rows;
+    const [{ products, ...rest }] = rows;
 
     // Return order
     res.json({
-      data: { ...rest, products: module.exports.filterPurchaseProductsWithOptions(JSON.parse(products)) },
+      data: {
+        ...rest,
+        products: module.exports.filterPurchaseProductsWithOptions(
+          JSON.parse(products)
+        )
+      }
     });
   },
 
@@ -479,6 +484,77 @@ module.exports = {
     };
 
     next();
+  },
+
+  updateProductDetails: async (
+    {
+      body: { price, quantity, SKU, barcode },
+      params: { itemGroupId, storeId, productDetailId },
+      userData: { id: userId }
+    },
+    res,
+    next
+  ) => {
+    //Update item group
+    //product has barcode and is not RFID enabled
+    console.log(userId);
+    //holds the storeId of the active cart
+    var updatedProductDetail = await module.exports.updateProductDetailsDB(
+      price,
+      quantity,
+      SKU,
+      barcode,
+      itemGroupId,
+      storeId,
+      productDetailId,
+      userId
+    );
+
+    if (updatedProductDetail instanceof Error) {
+      return res.status(500).json({
+        message: updatedProductDetail.message
+      });
+    }
+
+    return res.status(200).json({
+      message: "Product details has been updated"
+    });
+  },
+
+  updateProductDetailsDB: async (
+    price,
+    quantity,
+    SKU,
+    barcode,
+    itemGroupId,
+    storeId,
+    productDetailId,
+    id
+  ) => {
+    const updateProductDetailsProcedure =
+      "CALL update_product_detail_based_on_id(?,?,?,?,?,?,?,?)";
+
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery(updateProductDetailsProcedure, [
+        barcode,
+        SKU,
+        quantity,
+        price,
+        itemGroupId,
+        storeId,
+        id,
+        productDetailId
+      ])
+    );
+
+    //get any possible error
+    if (queryError) {
+      return queryError;
+    } else if (queryResult.affectedRows === 0) {
+      return new Error("Product Details not found");
+    } else {
+      return;
+    }
   },
 
   /**
