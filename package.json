@@ -20,6 +20,7 @@
     "dotenv": "^6.2.0",
     "express": "~4.16.0",
     "express-handlebars": "^3.0.0",
+    "flightplan": "^0.6.19",
     "fs": "0.0.1-security",
     "google-auth-library": "^3.1.0",
     "http-errors": "~1.6.2",
@@ -32,13 +33,14 @@
     "mysql": "^2.16.0",
     "nodemailer": "^5.1.1",
     "nodemailer-express-handlebars": "^3.0.0",
+    "pm2": "^3.4.0",
     "promisify": "0.0.3",
     "redis": "^2.8.0",
-    "util": "^0.11.0",
-    "pm2": "^3.4.0"
+    "util": "^0.11.0"
   },
   "devDependencies": {
     "eslint": "^5.13.0",
+    "fly": "^3.1.2",
     "jest": "^23.5.0"
   }
 }
