@@ -2,7 +2,7 @@ var plan = require("flightplan");
 
 var appName = "node-app-no-q";
 var username = "deploy";
-var startFile = "bin/www.js";
+var startFile = "bin/www";
 
 var tmpDir = appName + "-" + new Date().getTime();
 
