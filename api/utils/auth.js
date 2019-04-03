@@ -30,7 +30,7 @@ exports.createRefreshToken = async (payload) => {
 exports.createAccessToken = async (payload, options) => {
   const defaultSigningOptions = {
     subject: payload.id.toString(),
-    expiresIn: process.env.JWT_TOKEN_EXPIRES_IN,
+    expiresIn: process.env.JWT_TOKEN_EXPIRES_IN || '15m',
     issuer: 'NoQGroup',
   };
 
