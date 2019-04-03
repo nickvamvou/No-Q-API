@@ -44,7 +44,7 @@ exports.getAccessToken = async ({ body: { refreshToken }, headers: { authorizati
 
   const userInfo = JSON.parse(decryptedToken);
 
-  if (userInfo.userId !== userId) {
+  if (userInfo.id !== userId) {
     return next(createHttpError(503, 'UserID and refresh token do not belong to the same user.'));
   }
 
