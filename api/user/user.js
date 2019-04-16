@@ -1072,7 +1072,7 @@ module.exports = {
     const [ { products, ...rest } ] = rows;
 
     res.json({
-      data: { ...rest, products: JSON.parse(products) },
+      data: { ...rest, products: JSON.parse(products) }, // Parse products to get rid of back slashes.
     });
   },
 
