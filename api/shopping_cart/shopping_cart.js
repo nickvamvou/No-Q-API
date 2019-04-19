@@ -90,7 +90,7 @@ module.exports = {
   },
 
   createPayment: async (card_id, cart_id, dbTransactionInstance) => {
-    const createPaymentProcedure = "CALL create_payment(?)";
+    const createPaymentProcedure = "CALL create_payment(?,?)";
     let [queryError, queryResult] = await to(
       dbTransactionInstance.query(createPaymentProcedure, [card_id, cart_id])
     );
