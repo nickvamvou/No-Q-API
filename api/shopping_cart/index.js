@@ -7,6 +7,7 @@ const role = require("../user/user-role");
 const { dbTransactionMiddleware } = require("../middleware");
 //add product to user shopping cart
 
+//get product information based on barcode, used when scanning without being logged in
 router.get(
   "/:storeId/product/:barcode",
   orderController.getProductInformationBasedOnBarcode

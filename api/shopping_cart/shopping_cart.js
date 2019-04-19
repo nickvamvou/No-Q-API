@@ -33,6 +33,7 @@ module.exports = {
     //create payment and retrieve the payment id
     var payment_id = await module.exports.createPayment(
       card_id,
+      cart_id,
       dbTransactionInstance
     );
 
@@ -88,10 +89,10 @@ module.exports = {
     }
   },
 
-  createPayment: async (card_id, dbTransactionInstance) => {
+  createPayment: async (card_id, cart_id, dbTransactionInstance) => {
     const createPaymentProcedure = "CALL create_payment(?)";
     let [queryError, queryResult] = await to(
-      dbTransactionInstance.query(createPaymentProcedure, [card_id])
+      dbTransactionInstance.query(createPaymentProcedure, [card_id, cart_id])
     );
 
     //get any possible error
