@@ -219,4 +219,12 @@ router.delete(
   storeController.deleteVoucherFromShop
 );
 
+router.post(
+  "/:storeId/refund",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  dbTransactionMiddleware.startDbTransaction,
+  storeController.refundOrder,
+  dbTransactionMiddleware.endDbTransaction
+);
+
 module.exports = router;

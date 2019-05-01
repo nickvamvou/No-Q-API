@@ -1004,22 +1004,49 @@ module.exports = {
   },
   //gets a cart (cart_id) and removes the voucher in this cart
   deleteVoucherFromCart: async (req, res, next) => {
-    var deleted = await module.exports.removeVoucherFromCart(req.body.cart_id);
-    if (deleted instanceof Error) {
-      return res.status(500).json({
-        message: "Voucher could not be deleted"
-      });
+    const { dbTransactionInstance } = res.locals;
+    var coupon_id_to_delete = await module.exports.removeVoucherFromCart(
+      dbTransactionInstance,
+      req.body.cart_id
+    );
+    if (coupon_id_to_delete instanceof Error) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+      return next(
+        createHttpError(500, "Could not delete voucher from the cart")
+      );
     }
-    return res.status(200).json({
+
+    console.log("TO DECREMENT : " + coupon_id_to_delete);
+    console.log(coupon_id_to_delete);
+    var voucher_usage_decremented = module.exports.decrementUsageCoupon(
+      dbTransactionInstance,
+      coupon_id_to_delete
+    );
+
+    // Pass final response object to DB transaction middleware.
+    res.locals.finalResponse = {
       message: "Voucher successfuly removed from cart"
-    });
+    };
+    next();
   },
 
-  removeVoucherFromCart: async cart_id => {
+  //decrements the coupon usage once an item is deleted from the cart
+  decrementUsageCoupon: async (dbTransactionInstance, coupon_id) => {
+    const decrement_coupon_usage_sp = "CALL update_coupon_usage_delete(?)";
+    let [queryError, queryResult] = await to(
+      dbTransactionInstance.query(decrement_coupon_usage_sp, [coupon_id])
+    );
+    if (queryResult.affectedRows != 1) {
+      return new Error("Usage could not be decremented");
+    }
+    return;
+  },
+
+  removeVoucherFromCart: async (dbTransactionInstance, cart_id) => {
     var deleteVoucherFromActiveCart = "CALL delete_voucher_from_cart(?)";
 
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(deleteVoucherFromActiveCart, [cart_id])
+      dbTransactionInstance.query(deleteVoucherFromActiveCart, [cart_id])
     );
 
     //get any possible error
@@ -1027,7 +1054,10 @@ module.exports = {
       return queryError;
     }
 
-    return queryResult;
+    const [resultSet] = queryResult;
+    const [coupon_id] = resultSet;
+    console.log("COUPON ID : " + coupon_id);
+    return coupon_id.coupon_id;
   },
 
   //by code
@@ -1051,9 +1081,10 @@ module.exports = {
         });
       }
     }
-
+    const { dbTransactionInstance } = res.locals;
     //add it to the cart which is passed, if the cart is not in an active state return error
     var added = await module.exports.addVoucherToCartDB(
+      dbTransactionInstance,
       voucher[0].coupon_id,
       voucher[0].store_id,
       req.body.cart_id,
@@ -1061,25 +1092,58 @@ module.exports = {
     );
 
     if (added instanceof Error) {
-      console.log(added);
-      return res.status(500).json({
-        message:
+      await dbTransactionInstance.rollbackAndReleaseConn();
+      return next(
+        createHttpError(
+          500,
           "Could not add the voucher to the cart, probably because cart is not active"
-      });
+        )
+      );
+    }
+    //increment the usage of the coupon
+    var voucher_usage_incremented = module.exports.incrementUsageCoupon(
+      dbTransactionInstance,
+      voucher[0].coupon_id
+    );
+
+    if (voucher_usage_incremented instanceof Error) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+      return next(
+        createHttpError(500, "Coupon usage could not be incremented")
+      );
     }
 
-    console.log(voucher.coupon_id);
-    res.status(200).json({
+    // Pass final response object to DB transaction middleware.
+    res.locals.finalResponse = {
       message: "Voucher added",
       voucherId: voucher[0].coupon_id
-    });
+    };
+
+    next();
   },
 
-  addVoucherToCartDB: async (coupon_id, store_id, cart_id, user_id) => {
+  incrementUsageCoupon: async (dbTransactionInstance, coupon_id) => {
+    const increment_coupon_usage_sp = "CALL update_coupon_usage_add(?)";
+    let [queryError, queryResult] = await to(
+      dbTransactionInstance.query(increment_coupon_usage_sp, [coupon_id])
+    );
+    if (queryResult.affectedRows != 1) {
+      return new Error("Usage could not be incremented");
+    }
+    return;
+  },
+
+  addVoucherToCartDB: async (
+    dbTransactionInstance,
+    coupon_id,
+    store_id,
+    cart_id,
+    user_id
+  ) => {
     var addVoucherToActiveCart = "CALL add_voucher_to_active_cart(?, ?, ?, ?)";
 
     const [queryError, queryResult] = await to(
-      pool.promiseQuery(addVoucherToActiveCart, [
+      dbTransactionInstance.query(addVoucherToActiveCart, [
         coupon_id,
         store_id,
         cart_id,
@@ -1097,7 +1161,6 @@ module.exports = {
     console.log(resultSet);
 
     if (!resultSet[0].active_cart_variable) {
-      console.log("HAHAHA");
       return new Error("Cart is not active");
     }
 

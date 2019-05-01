@@ -41,14 +41,18 @@ router.delete(
 router.post(
   "/:userId/addVoucher",
   checkAuth.userAuth([role.SHOPPER]),
-  orderController.addVoucherToCart
+  dbTransactionMiddleware.startDbTransaction,
+  orderController.addVoucherToCart,
+  dbTransactionMiddleware.endDbTransaction
 );
 
 //TODO checking of whether the user owns the cart
 router.delete(
   "/:userId/deleteVoucher",
   checkAuth.userAuth([role.SHOPPER]),
-  orderController.deleteVoucherFromCart
+  dbTransactionMiddleware.startDbTransaction,
+  orderController.deleteVoucherFromCart,
+  dbTransactionMiddleware.endDbTransaction
 );
 
 router.post(

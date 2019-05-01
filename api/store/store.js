@@ -1487,6 +1487,23 @@ module.exports = {
 
   deleteVoucherCode: (req, res, next) => {},
 
+  /**
+   *
+   *
+   * The particular method receives an order_id and specific_products_refunded
+   * and refunds the user made the order based on the price of the items
+   *
+   *
+   * @return Whether the voucher was deleted from the store
+   * @throws Error (500) System Failure.
+             Error (401) Authentication failed
+             Error (404) voucher was not found in store
+
+
+   */
+
+  refundOrder: (req, res, next) => {},
+
   /*
    *****************************************************************************
    *                         Create, edit a product
