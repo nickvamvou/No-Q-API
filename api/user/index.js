@@ -175,8 +175,18 @@ router.post(
   cardsController.addCardToUser
 );
 
-//remove a card from a user
+//retrieve all the cards that belong to a user
+router.get(
+  "/:userId/getCards",
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  cardsController.retrieveUserCards
+);
 
-//view all user cards
+//remove a card from a user
+router.delete(
+  "/deleteCard",
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  cardsController.deleteUserCard
+);
 
 module.exports = router;

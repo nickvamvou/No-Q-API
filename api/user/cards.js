@@ -17,11 +17,12 @@ module.exports = {
   addCardToUser: async (
     {
       body: { holder_name, expiry_date, last_four_digits, token },
-      userData: { userId }
+      userData: { id: userId }
     },
     res,
     next
   ) => {
+    console.log("USER ID: " + userId);
     let [queryError, queryResult] = await to(
       pool.promiseQuery("call add_card_to_user(?, ?, ?, ?, ?)", [
         userId,
@@ -44,5 +45,57 @@ module.exports = {
       message: "Your card has been added",
       card_id: card_id
     });
+  },
+  /**
+   * Responsible for retrieving all the cards that belong to a specific individual
+   * The details of the card are passed through the payload
+   * @return On Success JSON returns card id
+   */
+  retrieveUserCards: async ({ userData: { id: userId } }, res, next) => {
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_user_cards(?)", [userId])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    //get the card id from the response
+    const [resultSet] = queryResult;
+
+    res.json({
+      cards: resultSet
+    });
+  },
+
+  /**
+   * Responsible for deleting a card belonging to a user
+   * The card_id to be deleted is passed in the payload
+   * @return On Success JSON returns success/failed deletion
+   */
+  deleteUserCard: async (
+    { body: { card_id }, userData: { id: userId } },
+    res,
+    next
+  ) => {
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call delete_user_card(?, ?)", [userId, card_id])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    if (queryResult.affectedRows != 1) {
+      res.status(404).json({
+        message: "Card not found in order to delete it"
+      });
+    } else {
+      res.json({
+        message: "Card successfully deleted"
+      });
+    }
   }
 };
