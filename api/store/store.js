@@ -275,7 +275,7 @@ module.exports = {
 
     // Return order
     res.json({
-      data: { ...rest, products: JSON.parse(products) },
+      data: { ...rest, products: JSON.parse(products) }
     });
   },
 

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const role = require("./user-role");
 const userController = require("./user");
+const cardsController = require("./cards");
 const checkAuth = require("../middleware/check-auth");
 const retailerPath = require("../../config/private_routes");
 const { dbTransactionMiddleware } = require("../middleware");
@@ -166,5 +167,16 @@ router.get(
   // checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
   userController.addVoucherToUser
 );
+
+//add a new card to a user
+router.post(
+  "/addCard",
+  checkAuth.userAuth([role.SHOPPER, role.ADMIN]),
+  cardsController.addCardToUser
+);
+
+//remove a card from a user
+
+//view all user cards
 
 module.exports = router;
