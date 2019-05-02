@@ -7,6 +7,7 @@ const role = require("../user/user-role");
 // For multi form data - images
 const upload = require("../middleware/upload-product-photo");
 const storeController = require("./store");
+const orderController = require("./order");
 
 /*
  *******************************************************************
@@ -220,10 +221,10 @@ router.delete(
 );
 
 router.post(
-  "/:storeId/refund",
+  ":/storeId/:orderId/refund",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
   dbTransactionMiddleware.startDbTransaction,
-  storeController.refundOrder,
+  orderController.refundOrder,
   dbTransactionMiddleware.endDbTransaction
 );
 
