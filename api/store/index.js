@@ -221,7 +221,7 @@ router.delete(
 );
 
 router.post(
-  ":/storeId/:orderId/refund",
+  "/:storeId/:orderId/refund",
   checkAuth.userAuth([role.RETAILER, role.ADMIN]),
   dbTransactionMiddleware.startDbTransaction,
   orderController.refundOrder,

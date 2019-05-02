@@ -19,15 +19,13 @@ module.exports = {
   refundOrder: async (
     {
       params: { storeId, orderId },
-      body: { specific_products_refunded },
+      body: { specific_products_ids_refunded },
       userData: { id: userId }
     },
     res,
     next
   ) => {
     const { dbTransactionInstance } = res.locals;
-
-    //create refund object
 
     //create a refund object and store the refund id
     var refundId = await module.exports.createRefund(
@@ -37,16 +35,44 @@ module.exports = {
       orderId
     );
 
-    //there was a problem deleting the cart
+    //if there was a problem with creating a refund object
     if (refundId instanceof Error) {
+      console.log("DONT");
       await dbTransactionInstance.rollbackAndReleaseConn();
       return next(
         createHttpError(500, "Error when trying to create a refund entry")
       );
     }
 
-    //loop through the products to be refunded
-    specific_products_refunded.forEach(product => {});
+    var refund_amount = await module.exports.refundIndividualProductId(
+      dbTransactionInstance,
+      refundId,
+      orderId,
+      specific_products_ids_refunded
+    );
+
+    console.log("GOES");
+    console.log(refund_amount);
+
+    if (refund_amount instanceof Error) {
+      await dbTransactionInstance.rollbackAndReleaseConn();
+      return next(
+        createHttpError(500, "Error when trying to refund individual product")
+      );
+    }
+
+    //TODO IF REACHED TILL THIS FAR SEND THE AMOUNT `refound_amount` to the user
+
+    // Pass final response object to DB transaction middleware.
+    res.locals.finalResponse = {
+      message: "Refund completed",
+      data: {
+        refund_id: refundId,
+        amount_refunded_aed: refund_amount
+      }
+    };
+
+    next();
   },
 
   /*
@@ -62,7 +88,7 @@ module.exports = {
    */
 
   createRefund: async (dbTransactionInstance, storeId, userId, orderId) => {
-    const createRefundProcedure = "CALL create_refund(?,?,?)";
+    const createRefundProcedure = "CALL create_refund(?,?,?,?)";
     var refundTime = moment(new Date())
       .format("YYYY/MM/DD hh:mm:ss")
       .toString();
@@ -76,13 +102,91 @@ module.exports = {
     );
 
     if (queryError) {
+      console.log(queryError);
       return queryError;
     } else if (queryResult.length === 0) {
       return new Error();
     } else {
       const [resultSet] = queryResult;
       const [id] = resultSet;
+      //return the refund id
       return id.id;
+    }
+  },
+
+  refundIndividualProductId: async (
+    dbTransactionInstance,
+    refundId,
+    orderId,
+    specific_products_ids_refunded
+  ) => {
+    //that is the total amount to be refunded to the customer
+    let amount_of_refund = 0;
+    //check for error when refunding
+    let error_refund = false;
+
+    for (var i = 0; i < specific_products_ids_refunded.length; i++) {
+      //entry the product id and refund id to the database and retrive the price to be refunded
+      var price_of_product_to_be_refunded = await module.exports.refundIndividualProductIdDB(
+        dbTransactionInstance,
+        refundId,
+        specific_products_ids_refunded[i],
+        orderId
+      );
+      //if that could not be performed return error
+      if (price_of_product_to_be_refunded instanceof Error) {
+        error_refund = true;
+        break;
+      }
+
+      amount_of_refund = amount_of_refund + price_of_product_to_be_refunded;
+    }
+
+    if (error_refund) {
+      console.log("error");
+      return new Error();
+    } else {
+      console.log("END : " + amount_of_refund);
+      return amount_of_refund;
+    }
+  },
+
+  /**
+   * The particular method refunds individual products by creating an entry in the refund_products table
+   * Receives the refund_id entry  and the id of the product to be refunded. The particular method also updates the quantity
+   * of the product details refunded
+   * Returns the price of the product to be refunded
+   * @return the price of the product to be refunded
+   *
+   */
+  refundIndividualProductIdDB: async (
+    dbTransactionInstance,
+    refund_id,
+    product_to_refund_id,
+    orderId
+  ) => {
+    const createRefundProcedureForIndividualProduct =
+      "CALL create_refund_based_on_product_id(?,?,?)";
+    //adjust the database to refund specific product
+    let [queryError, queryResult] = await to(
+      dbTransactionInstance.query(createRefundProcedureForIndividualProduct, [
+        refund_id,
+        product_to_refund_id,
+        orderId
+      ])
+    );
+    if (queryError) {
+      return queryError;
+    } else if (queryResult.length === 0) {
+      return new Error();
+    } else {
+      const [resultSet] = queryResult;
+      console.log(resultSet);
+
+      const [product_price] = resultSet;
+
+      //return the product price refunded
+      return product_price.product_price;
     }
   }
 };
