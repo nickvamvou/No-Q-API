@@ -28,7 +28,9 @@ module.exports = {
     const { dbTransactionInstance } = res.locals;
 
     //create a refund object and store the refund id
-    var refundId = await module.exports.createRefund(
+    //refund information includes the following
+    //`refundId` from the entry created, card token to send the refund
+    var refundInformation = await module.exports.createRefund(
       dbTransactionInstance,
       storeId,
       userId,
@@ -36,7 +38,7 @@ module.exports = {
     );
 
     //if there was a problem with creating a refund object
-    if (refundId instanceof Error) {
+    if (refundInformation instanceof Error) {
       console.log("DONT");
       await dbTransactionInstance.rollbackAndReleaseConn();
       return next(
@@ -46,13 +48,10 @@ module.exports = {
 
     var refund_amount = await module.exports.refundIndividualProductId(
       dbTransactionInstance,
-      refundId,
+      refundInformation.id,
       orderId,
       specific_products_ids_refunded
     );
-
-    console.log("GOES");
-    console.log(refund_amount);
 
     if (refund_amount instanceof Error) {
       await dbTransactionInstance.rollbackAndReleaseConn();
@@ -61,13 +60,13 @@ module.exports = {
       );
     }
 
-    //TODO IF REACHED TILL THIS FAR SEND THE AMOUNT `refound_amount` to the user
+    //TODO IF REACHED TILL THIS FAR SEND THE AMOUNT `refound_amount` to the card token `refundInformation.card_token`
 
     // Pass final response object to DB transaction middleware.
     res.locals.finalResponse = {
       message: "Refund completed",
       data: {
-        refund_id: refundId,
+        refund_id: refundInformation.id,
         amount_refunded_aed: refund_amount
       }
     };
@@ -108,9 +107,9 @@ module.exports = {
       return new Error();
     } else {
       const [resultSet] = queryResult;
-      const [id] = resultSet;
+      const [refund_information] = resultSet;
       //return the refund id
-      return id.id;
+      return refund_information;
     }
   },
 
@@ -135,6 +134,7 @@ module.exports = {
       );
       //if that could not be performed return error
       if (price_of_product_to_be_refunded instanceof Error) {
+        console.log(price_of_product_to_be_refunded);
         error_refund = true;
         break;
       }
