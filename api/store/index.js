@@ -228,4 +228,10 @@ router.post(
   dbTransactionMiddleware.endDbTransaction
 );
 
+router.get(
+  "/:storeId/refunds",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  orderController.getRefundsForAStore
+);
+
 module.exports = router;

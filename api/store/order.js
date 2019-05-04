@@ -73,6 +73,37 @@ module.exports = {
 
     next();
   },
+  /**
+   * The particular method retrieves all the refunds made for a particular store
+   * If multiple refunds have been issued for a particular purchase in different times,
+   * multiple refund rows will be returned.
+   * @param store_id , used to retrieve the refunds of the particular store
+   * @return Whether the refund was successfully completed
+   *
+   */
+  getRefundsForAStore: async (
+    { params: { storeId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
+    // Issue query to get all item groups.
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_refunds_by_store_id(?, ?)", [storeId, userId])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get items groups from query result.
+    const [refunds] = queryResult;
+
+    // Respond with list of all item groups.
+    res.json({
+      data: refunds
+    });
+  },
 
   /*
   ************************************************** HELPER FUNCTIONS **************************************************
