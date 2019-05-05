@@ -86,7 +86,7 @@ module.exports = {
     res,
     next
   ) => {
-    // Issue query to get all item groups.
+    // Issue query to retrieve all the refunds from a store.
     let [queryError, queryResult] = await to(
       pool.promiseQuery("call get_refunds_by_store_id(?, ?)", [storeId, userId])
     );
@@ -96,10 +96,49 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    // Get items groups from query result.
+    // Get refunds from query result.
     const [refunds] = queryResult;
 
-    // Respond with list of all item groups.
+    // Respond with list of all refunds.
+    res.json({
+      data: refunds
+    });
+  },
+
+  /**
+   * The particular method retrieves information about a specific refund issued
+   * by a store
+   * @param refund_id , used to retrieve the refund of the particular store
+   * @param store_id , used to understand from where to retrieve the refund
+   * @return Whether the refund was successfully completed
+   *
+   */
+  getSpecificRefundForStore: async (
+    { params: { storeId, refundId }, userData: { id: userId } },
+    res,
+    next
+  ) => {
+    //Issue query to retrieve specific details of refund from a store.
+    //Checks if users owns the store and then if the store owns the refund
+
+    //TODO optimize sql procedure in order to return the total refund in 1 row
+    let [queryError, queryResult] = await to(
+      pool.promiseQuery("call get_specific_refund_by_store_id(?, ?, ?)", [
+        refundId,
+        storeId,
+        userId
+      ])
+    );
+
+    // Forward query error to central error handler.
+    if (queryError) {
+      return next(createHttpError(new SqlError(queryError)));
+    }
+
+    // Get refund details from query
+    const [refunds] = queryResult;
+
+    // Respond with the specific refund.
     res.json({
       data: refunds
     });

@@ -234,4 +234,10 @@ router.get(
   orderController.getRefundsForAStore
 );
 
+router.get(
+  "/:storeId/refunds/:refundId",
+  checkAuth.userAuth([role.RETAILER, role.ADMIN]),
+  orderController.getSpecificRefundForStore
+);
+
 module.exports = router;
