@@ -4,7 +4,7 @@ const controller = require('./controller');
 
 
 router.get(
-  '/CCARSA',
+  '/CCAGetRSA',
   controller.getRSAFile,
 );
 
