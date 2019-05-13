@@ -13,5 +13,10 @@ router.get(
   controller.getResponseHandlerFile,
 );
 
+router.get(
+  `/${process.env.CCA_ORDER_STATUS_EVENT_URL_SHA}`,
+  controller.payForOrder,
+);
+
 
 module.exports = router;

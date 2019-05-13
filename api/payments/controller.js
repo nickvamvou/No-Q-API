@@ -22,3 +22,19 @@ exports.getResponseHandlerFile = async (req, res) => {
   // Send static HTML file.
   res.sendFile(path.resolve('./api/payments/cca/responseHandler.jsp'));
 };
+
+/**
+ *
+ * This method handles payment requests for CCA via
+ * Dynamic Event Notification -- web hooks.
+ *
+ * @param req - express request object containing information about the request
+ * @param res - express response object
+ *
+ */
+exports.payForOrder = async ({ body: payload }, res) => {
+  res.json({
+    message: 'Order status event notification works!',
+    data: payload,
+  })
+};
