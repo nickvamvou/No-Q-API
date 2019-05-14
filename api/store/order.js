@@ -61,6 +61,7 @@ module.exports = {
     }
 
     //TODO IF REACHED TILL THIS FAR SEND THE AMOUNT `refound_amount` to the card token `refundInformation.card_token`
+    //via the CCAVENUE SDK
 
     // Pass final response object to DB transaction middleware.
     res.locals.finalResponse = {
@@ -189,6 +190,9 @@ module.exports = {
     orderId,
     specific_products_ids_refunded
   ) => {
+    if (specific_products_ids_refunded.length === 0) {
+      return new Error();
+    }
     //that is the total amount to be refunded to the customer
     let amount_of_refund = 0;
     //check for error when refunding
@@ -251,7 +255,6 @@ module.exports = {
       return new Error();
     } else {
       const [resultSet] = queryResult;
-      console.log(resultSet);
 
       const [product_price] = resultSet;
 
