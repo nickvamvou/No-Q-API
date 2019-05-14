@@ -5,6 +5,7 @@ var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 var bodyParser = require("body-parser");
 var cors = require("cors");
+const kue = require('kue');
 
 var indexRouter = require("./routes/index");
 var authRouter = require("./api/auth");
@@ -50,6 +51,7 @@ app.use("/shopping_cart", cartRouter);
 app.use("/store", storeRouter);
 app.use("/support", supportAPI);
 app.use("/payments", payments);
+app.use('/queue-dashboard', kue.app);
 /*
 *******************************************************************************
                                 End
