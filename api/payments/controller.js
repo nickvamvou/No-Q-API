@@ -1,4 +1,5 @@
 const path = require('path');
+const queue = require('../../config/queue');
 
 
 /**
@@ -33,8 +34,23 @@ exports.getResponseHandlerFile = async (req, res) => {
  *
  */
 exports.payForOrder = async ({ body: payload }, res) => {
+  const paymentBgJobName = 'order-payment';
+
+  queue
+    .create(paymentBgJobName, payload)
+    .priority('high')
+    .attempts(5)
+    .backoff({ delay: (60 * 5) * 1000, type: 'exponential' })
+    .save();
+
+  queue.process(paymentBgJobName, (job, done) => {
+    // TODO: Code order payment functionality here
+    job.log('order payment processing');
+    done();
+    job.log('order payment processing complete')
+  });
+
   res.json({
-    message: 'Order status event notification works!',
-    data: payload,
-  })
+    message: 'Order payment is now being processed'
+  });
 };
