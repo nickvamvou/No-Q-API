@@ -14,6 +14,7 @@ var storeRouter = require("./api/store/index");
 var usersRouter = require("./api/user/index");
 var cartRouter = require("./api/shopping_cart/index");
 const supportAPI = require("./api/support");
+const payments = require('./api/payments');
 
 var app = express();
 
@@ -48,6 +49,7 @@ app.use("/productDetails", productDetailsRouter);
 app.use("/shopping_cart", cartRouter);
 app.use("/store", storeRouter);
 app.use("/support", supportAPI);
+app.use("/payments", payments);
 /*
 *******************************************************************************
                                 End
