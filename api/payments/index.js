@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+
 const controller = require('./controller');
 
 
@@ -13,7 +14,7 @@ router.get(
   controller.getResponseHandlerFile,
 );
 
-router.get(
+router.post(
   `/${process.env.CCA_ORDER_STATUS_EVENT_URL_SHA}`,
   controller.payForOrder,
 );
