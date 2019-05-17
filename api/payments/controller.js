@@ -49,7 +49,7 @@ exports.payForOrder = ({ body: payload }, res) => {
 
   queue.process(orderPaymentJobName, async (job, done) => {
     try {
-      const { order_id } = job.data;
+      const { card_id: cardId, order_id: cartId } = job.data;
       let error, result, dbTransaction;
 
       [error, dbTransaction] = await to(
@@ -69,7 +69,7 @@ exports.payForOrder = ({ body: payload }, res) => {
       }
 
       [ error, result ] = await to(
-        dbTransaction.query('call delete_active_cart(?)', [ order_id ])
+        dbTransaction.query('call delete_active_cart(?)', [ cartId ])
       );
 
       if (error) {
@@ -82,6 +82,16 @@ exports.payForOrder = ({ body: payload }, res) => {
         await dbTransaction.rollbackAndReleaseConn();
 
         return done(new Error(`Could not find cart`));
+      }
+
+      [error] = await to(
+        dbTransaction.query('call create_payment(?,?)', [cardId, cartId])
+      );
+
+      if (error) {
+        await dbTransaction.rollbackAndReleaseConn();
+
+        return done(error);
       }
 
       // Make database changes so far persistent. Commit it!
