@@ -52,7 +52,7 @@ exports.payForOrder = ({ body: payload }, res) => {
       const { card_id: cardId, order_id: cartId } = job.data;
       let error, result, dbTransaction;
 
-      [error, dbTransaction] = await to(
+      [ error, dbTransaction ] = await to(
         new databaseUtil.DatabaseTransaction(pool).init()
       );
 
@@ -61,7 +61,7 @@ exports.payForOrder = ({ body: payload }, res) => {
       }
 
       // Begin new database transaction.
-      [error] = await to(dbTransaction.begin());
+      [ error ] = await to(dbTransaction.begin());
 
       // Error starting database transaction. Forward error!
       if (error) {
@@ -84,8 +84,20 @@ exports.payForOrder = ({ body: payload }, res) => {
         return done(new Error(`Could not find cart`));
       }
 
-      [error] = await to(
-        dbTransaction.query('call create_payment(?,?)', [cardId, cartId])
+      [ error, result ] = await to(
+        dbTransaction.query('call create_payment(?,?)', [ cardId, cartId ])
+      );
+
+      if (error) {
+        await dbTransaction.rollbackAndReleaseConn();
+
+        return done(error);
+      }
+
+      const [ [ { id: paymentId } ] ] = result;
+
+      [ error ] = await to(
+        dbTransaction.query('call create_purchase(?,?,?)', [ new Date(), paymentId, cartId ])
       );
 
       if (error) {
@@ -95,7 +107,7 @@ exports.payForOrder = ({ body: payload }, res) => {
       }
 
       // Make database changes so far persistent. Commit it!
-      [error] = await to(dbTransaction.commit());
+      [ error ] = await to(dbTransaction.commit());
 
       // If error occurs while persisting changes, rollback!
       if (error) {
