@@ -1,13 +1,7 @@
 const path = require('path');
-const to = require("await-to-js").default;
 
-const { databaseUtil } = require("../utils");
-const pool = require("../../config/db_connection");
 const queue = require('../../config/queue');
-const {
-  notifyStakeholdersOfFailedPurchaseAttempt,
-  notifyStakeholdersOfFailedPurchase
-} = require('./helpers');
+const { createPurchase, notifyStakeholdersOfPurchaseCreationFailure } = require('./helpers');
 
 
 /**
@@ -41,8 +35,8 @@ exports.getResponseHandlerFile = async (req, res) => {
  * @param res - express response object
  *
  */
-exports.createPurchase = ({ body: payload }, res) => {
-  const jobName = 'create-purchase';
+exports.createPurchaseCreationJob = ({ body: payload }, res) => {
+  const jobName = 'Create customer purchase';
 
   // Create queued background process to create customer details
   const job = queue
@@ -52,95 +46,31 @@ exports.createPurchase = ({ body: payload }, res) => {
     .backoff({ delay: (60 * 5) * 1000, type: 'exponential' })
     .save();
 
-  /**
-   * TODO: On failed attempt, send email to store's support team in question and blind-copy NoQ's support as well
-   * notifying them of the failed attempt to create customer purchase details.
-   */
-  job.on('failed attempt', notifyStakeholdersOfFailedPurchaseAttempt(job));
+  // On failed attempt, notify NoQ
+  job.on('failed attempt', notifyStakeholdersOfPurchaseCreationFailure({ job }));
 
-  // Finally, after set attempts and purchase is still not created successfully, then notify stakeholders of fatality
-  job.on('failed', notifyStakeholdersOfFailedPurchase(job));
+  // Finally, after set attempts, and purchase is still not created successfully, then notify stakeholders of fatality
+  job.on('failed', notifyStakeholdersOfPurchaseCreationFailure({ job }));
 
   // Attempt to create purchase details in the background
-  queue.process(jobName, async (job, done) => {
-    try {
-      const { card_id: cardId, order_id: cartId } = job.data;
-      let error, result, dbTransaction;
-
-      [ error, dbTransaction ] = await to(
-        new databaseUtil.DatabaseTransaction(pool).init()
-      );
-
-      if (error) {
-        return done(error);
-      }
-
-      // Begin new database transaction.
-      [ error ] = await to(dbTransaction.begin());
-
-      // Error starting database transaction. Forward error!
-      if (error) {
-        return done(error);
-      }
-
-      [ error, result ] = await to(
-        dbTransaction.query('call delete_active_cart(?)', [ cartId ])
-      );
-
-      if (error) {
-        await dbTransaction.rollbackAndReleaseConn();
-
-        return done(error);
-      }
-
-      if (result.affectedRows === 0) {
-        await dbTransaction.rollbackAndReleaseConn();
-
-        return done(new Error(`Could not find cart`));
-      }
-
-      [ error, result ] = await to(
-        dbTransaction.query('call create_payment(?,?)', [ cardId, cartId ])
-      );
-
-      if (error) {
-        await dbTransaction.rollbackAndReleaseConn();
-
-        return done(error);
-      }
-
-      const [ [ { id: paymentId } ] ] = result;
-
-      [ error ] = await to(
-        dbTransaction.query('call create_purchase(?,?,?)', [ new Date(), paymentId, cartId ])
-      );
-
-      if (error) {
-        await dbTransaction.rollbackAndReleaseConn();
-
-        return done(error);
-      }
-
-      // Make database changes so far persistent. Commit it!
-      [ error ] = await to(dbTransaction.commit());
-
-      // If error occurs while persisting changes, rollback!
-      if (error) {
-        await dbTransaction.rollback();
-
-        done(error);
-      }
-
-      // Finally, DB connection has served its purpose. Release it back into the pool.
-      await dbTransaction.releaseConn();
-
-      done();
-    } catch (error) {
-      done(error);
-    }
-  });
+  queue.process(jobName, createPurchase);
 
   res.json({
-    message: 'Order payment is now being processed in the background 💪!!! Go brew some ☕️'
+    message: 'Purchase is now being created in the background 💪!!! Go brew some ☕️'
+  });
+};
+
+/**
+ *
+ * This method handles refund status notifications from CCA via
+ * Dynamic Event Notification -- web hooks.
+ *
+ * @param req - express request object containing information about the request
+ * @param res - express response object
+ *
+ */
+exports.createRefundCreationJob = ({ body: payload }, res) => {
+  res.json({
+    message: 'Refund is now being created in the background 💪!!! Go brew some ☕️',
   });
 };

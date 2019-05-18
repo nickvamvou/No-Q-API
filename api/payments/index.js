@@ -16,7 +16,12 @@ router.get(
 
 router.post(
   `/${process.env.CCA_ORDER_STATUS_EVENT_URL_SHA}`,
-  controller.createPurchase,
+  controller.createPurchaseCreationJob,
+);
+
+router.post(
+  `/${process.env.CCA_ORDER_REFUND_STATUS_EVENT_URL_SHA}`,
+  controller.createRefundCreationJob,
 );
 
 
