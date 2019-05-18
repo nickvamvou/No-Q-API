@@ -10,7 +10,7 @@ exports.notifyStakeholdersOfPurchaseCreationFailure = ({ job, mailOptions = {} }
   const defaultMailOptions = { // TODO: Use appropriate emails
     to: 'bolutife.lawrence@no-q.io',
     // from: "sender@example.com",
-    template: "forgot-password",
+    template: "failed-job",
     subject: `Background job #${job.id}: ${job.type} failed due to "Error: ${errorMessage}". Attempts(${doneAttempts} / 5)`, // TODO: Use max_attempts from the current job
     context: {
       doneAttempts,
@@ -30,7 +30,7 @@ exports.notifyStakeholdersOfPurchaseCreationFailure = ({ job, mailOptions = {} }
 
 exports.createPurchase = async (job, done) => {
   try {
-    const { card_id: cardId, order_id: cartId } = job.data;
+    const { billing_email: billingEmail, card_id: cardId, order_id: cartId } = job.data;
     let error, result, dbTransaction;
 
     [ error, dbTransaction ] = await to(
@@ -87,7 +87,22 @@ exports.createPurchase = async (job, done) => {
       return done(error);
     }
 
-    // TODO: Send purchase receipt to customer
+    // Send purchase receipt to customer
+    const mailOptions = { // TODO: Use appropriate emails
+      to: billingEmail,
+      template: "customer-purchase-receipt",
+      subject: 'Purchase Receipt',
+      context: {},
+    };
+
+    // Send mail
+    [ error ] = await to(mailer.sendEmail(mailOptions));
+
+    if (error) {
+      await dbTransaction.rollbackAndReleaseConn();
+
+      done(error);
+    }
 
     // Make database changes so far persistent. Commit it!
     [ error ] = await to(dbTransaction.commit());
