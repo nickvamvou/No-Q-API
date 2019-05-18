@@ -4,7 +4,10 @@ const to = require("await-to-js").default;
 const { databaseUtil } = require("../utils");
 const pool = require("../../config/db_connection");
 const queue = require('../../config/queue');
-const { notifyStakeholdersOfFailedPurchaseAttempt } = require('./helpers');
+const {
+  notifyStakeholdersOfFailedPurchaseAttempt,
+  notifyStakeholdersOfFailedPurchase
+} = require('./helpers');
 
 
 /**
@@ -54,6 +57,9 @@ exports.createPurchase = ({ body: payload }, res) => {
    * notifying them of the failed attempt to create customer purchase details.
    */
   job.on('failed attempt', notifyStakeholdersOfFailedPurchaseAttempt(job));
+
+  // Finally, after set attempts and purchase is still not created successfully, then notify stakeholders of fatality
+  job.on('failed', notifyStakeholdersOfFailedPurchase(job));
 
   // Attempt to create purchase details in the background
   queue.process(jobName, async (job, done) => {
