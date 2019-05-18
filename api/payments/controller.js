@@ -4,6 +4,7 @@ const to = require("await-to-js").default;
 const { databaseUtil } = require("../utils");
 const pool = require("../../config/db_connection");
 const queue = require('../../config/queue');
+const { notifyStakeholdersOfFailedPurchaseAttempt } = require('./helpers');
 
 
 /**
@@ -37,17 +38,25 @@ exports.getResponseHandlerFile = async (req, res) => {
  * @param res - express response object
  *
  */
-exports.payForOrder = ({ body: payload }, res) => {
-  const orderPaymentJobName = 'order-payment';
+exports.createPurchase = ({ body: payload }, res) => {
+  const jobName = 'create-purchase';
 
-  queue
-    .create(orderPaymentJobName, payload)
+  // Create queued background process to create customer details
+  const job = queue
+    .create(jobName, payload)
     .priority('high')
     .attempts(5)
     .backoff({ delay: (60 * 5) * 1000, type: 'exponential' })
     .save();
 
-  queue.process(orderPaymentJobName, async (job, done) => {
+  /**
+   * TODO: On failed attempt, send email to store's support team in question and blind-copy NoQ's support as well
+   * notifying them of the failed attempt to create customer purchase details.
+   */
+  job.on('failed attempt', notifyStakeholdersOfFailedPurchaseAttempt(job));
+
+  // Attempt to create purchase details in the background
+  queue.process(jobName, async (job, done) => {
     try {
       const { card_id: cardId, order_id: cartId } = job.data;
       let error, result, dbTransaction;
