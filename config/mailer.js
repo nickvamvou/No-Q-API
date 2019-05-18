@@ -9,7 +9,7 @@ const path = require("path");
 
 // Create transporter for sending emails
 const transporter = nodemailer.createTransport(
-  process.env.NODE_MAILER_CONN_URL
+  process.env.NODE_MAILER_SMTP_TRANSPORTER_CONN_URL
 );
 
 const handlebarsOptions = {
