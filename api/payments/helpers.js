@@ -9,7 +9,7 @@ exports.notifyStakeholdersOfPurchaseCreationFailure = ({ job, mailOptions = {} }
   // Configure mailer options
   const defaultMailOptions = { // TODO: Use appropriate emails
     to: 'bolutife.lawrence@no-q.io',
-    // from: "sender@example.com",
+    replyTo: "no-reply@no-q.io",
     template: "failed-job",
     subject: `Background job #${job.id}: ${job.type} failed due to "Error: ${errorMessage}". Attempts(${doneAttempts} / 5)`, // TODO: Use max_attempts from the current job
     context: {

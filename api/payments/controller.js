@@ -46,6 +46,8 @@ exports.createPurchaseCreationJob = ({ body: payload }, res) => {
     .backoff({ delay: (60 * 5) * 1000, type: 'exponential' })
     .save();
 
+  console.log(queue);
+
   // On failed attempt, notify NoQ
   job.on('failed attempt', notifyStakeholdersOfPurchaseCreationFailure({ job }));
 
@@ -56,7 +58,10 @@ exports.createPurchaseCreationJob = ({ body: payload }, res) => {
   queue.process(jobName, createPurchase);
 
   res.json({
-    message: 'Purchase is now being created in the background 💪!!! Go brew some ☕️'
+    message: 'Purchase is now being created in the background 💪!!! Go brew some ☕️',
+    data: {
+      jobId: job.id,
+    },
   });
 };
 
