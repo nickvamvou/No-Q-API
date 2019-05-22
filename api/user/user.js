@@ -313,7 +313,7 @@ module.exports = {
 
     // Validation of `accessToken` has passed. Check for customer's existence.
     const [queryError, [[existingCustomer]]] = await to(
-      pool.promiseQuery("CALL get_customer_id_by_email(?)", [tokenInfo.email])
+      pool.promiseQuery("CALL get_individual_details_by_email(?)", [tokenInfo.email])
     );
 
     // Sadly, something bad happened while checking customer's existence. Forward `SqlError` to central error handler.
@@ -321,11 +321,11 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    // Hold `uid` for new or existing customer.
-    let customerId = existingCustomer ? existingCustomer.uid : undefined;
+    // Hold new or existing customer.
+    let customer = existingCustomer;
 
     // Customer not found, create one!
-    if (!customerId) {
+    if (!customer) {
       // Create new customer. `null` is passed as password because third party auth doesn't require it.
       const [queryError, queryResult] = await to(
         pool.promiseQuery("CALL create_customer(?, ?)", [tokenInfo.email, null])
@@ -337,19 +337,15 @@ module.exports = {
       }
 
       // Extract last inserted id object from query result.
-      const [[lastInsertedIdObj]] = queryResult;
+      const [[newlyCreatedCustomer]] = queryResult;
 
       // Update `customerId`, Make `id` of newly created user available to rest of method
-      customerId = lastInsertedIdObj["@LID"];
+      customer = newlyCreatedCustomer;
     }
 
     // All checks passed. Everything seems good! Create JWT token containing either new or existing customer's `id` and `role`.
     const [jwtError, token] = await to(
-      util.promisify(jwt.sign)(
-        { id: customerId, role: role.SHOPPER },
-        key.jwt_key,
-        { expiresIn: "1h" }
-      )
+      util.promisify(jwt.sign)({ id: customer.uid, role: role.SHOPPER }, key.jwt_key, { expiresIn: "1h" })
     );
 
     // Forward JWT error to central error handler.
@@ -361,7 +357,7 @@ module.exports = {
     res.status(200).json({
       message: "You're now logged in with Google!",
       token,
-      userId: customerId
+      user: customer,
     });
   },
 
