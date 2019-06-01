@@ -136,12 +136,11 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
-    // Get refund details from query
-    const [refunds] = queryResult;
+    const [{ products, ...rest }] = rows;
 
-    // Respond with the specific refund.
+    // Return order
     res.json({
-      data: refunds
+      data: { ...rest, products: JSON.parse(products) }
     });
   },
 
