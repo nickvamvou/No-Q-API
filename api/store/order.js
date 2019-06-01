@@ -136,6 +136,7 @@ module.exports = {
       return next(createHttpError(new SqlError(queryError)));
     }
 
+    const [rows] = queryResult;
     const [{ products, ...rest }] = rows;
 
     // Return order
