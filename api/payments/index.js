@@ -11,7 +11,7 @@ router.post(
 
 router.post(
   `/${process.env.CCA_ORDER_REFUND_STATUS_EVENT_URL_SHA}`,
-  controller.createRefundCreatorJob,
+  controller.createRefundProcessorJob,
 );
 
 

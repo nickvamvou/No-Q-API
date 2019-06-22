@@ -29,7 +29,7 @@ exports.createJobFailureEmailSender = ({ job, mailOptions = {} }) => async (erro
       },
     };
 
-    // Send the actual email
+    // Send the error report email
     await mailer.sendEmail({ ...defaultMailOptions, ...mailOptions });
   } catch (error) {
     // Log job error. See details on the queue dashboard.
@@ -39,16 +39,15 @@ exports.createJobFailureEmailSender = ({ job, mailOptions = {} }) => async (erro
 
 /**
  *
- * Creates customer purchase. It defines the actual process for the
- * `CREATE_CUSTOMER_PURCHASE` job processor.
+ * Queue worker/processor function for creating customer purchases.
  *
- * @param job
- * @param done
- * @returns {Promise<*>} - ignored?
+ * @param job - job data
+ * @param done - callback function to notify caller of error or success
+ * @returns {Promise<*>} - ignored!
  *
  */
 exports.createPurchase = async (job, done) => {
-  // Make DatabaseTransaction instance available high up within this space.
+  // Make DatabaseTransaction instance available globally within this space.
   let dbTransaction;
 
   // Try initializing the DatabaseTransaction and handle error(s) gracefully.
@@ -56,11 +55,11 @@ exports.createPurchase = async (job, done) => {
     // Create a new instance of a DatabaseTransaction to be used by the rest of the function=.
     dbTransaction = await new databaseUtil.DatabaseTransaction(pool).init();
   } catch (error) {
-    // Problem setting up a DatabaseTransaction? Well, notify caller and halt process ;(
+    // Problem setting up a DatabaseTransaction. Notify caller and halt process ;(
     return done(error);
   }
 
-  // DatabaseTransaction all set up? Try creating customer purchase and handle error(s) gracefully.
+  // DatabaseTransaction all set up! Try creating customer purchase and handle error(s) gracefully.
   try {
     const { billing_email: billingEmail, card_id: cardId, order_id: cartId } = job.data;
 
@@ -81,7 +80,7 @@ exports.createPurchase = async (job, done) => {
     await dbTransaction.query('call create_purchase(?,?,?)', [ new Date(), paymentId, cartId ]);
 
     // Send purchase receipt to customer
-    const mailOptions = { // TODO: Use appropriate emails
+    const mailConfig = { // TODO: Use appropriate emails
       to: billingEmail,
       template: "customer-purchase-receipt",
       subject: 'Purchase Receipt',
@@ -89,15 +88,14 @@ exports.createPurchase = async (job, done) => {
     };
 
     // Send mail
-    await mailer.sendEmail(mailOptions);
+    await mailer.sendEmail(mailConfig);
 
     // Make database changes so far persistent. Commit it! Put a ring on it! ;)
     await dbTransaction.commit();
 
-    // Ah! Everything looks sharp! Pass good news along to caller.
+    // Ah! Everything looks sharp! Relay good news to caller.
     done();
   } catch (error) {
-
     // Oh! Something didn't work as planned. Rollback any DatabaseTransaction changes if any.
     await dbTransaction.rollback();
 

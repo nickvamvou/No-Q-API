@@ -1,3 +1,4 @@
+// TODO: Kue is no longer maintained. Use Bull as an alternative.
 const kue = require('kue');
 
 const queue = kue.createQueue({
