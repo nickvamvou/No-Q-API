@@ -19,7 +19,7 @@ exports.createPurchaseCreatorJob = (req, res) => {
   const jobName = 'CREATE_CUSTOMER_PURCHASE';
 
   // Specifies number of max active jobs at any time. Concurrency value.
-  const maxActiveJobs = 20;
+  // const maxActiveJobs = 20;
 
   // Specifies job's level of attention and preference .
   const jobPriority = 'high';
@@ -31,7 +31,7 @@ exports.createPurchaseCreatorJob = (req, res) => {
   const { body: payload } = req;
 
   // Bump up queue event listeners to make room for job concurrency.
-  queue.setMaxListeners(queue.getMaxListeners() + maxActiveJobs);
+  // queue.setMaxListeners(queue.getMaxListeners() + maxActiveJobs);
 
   // Create queued background job to create customer purchase.
   const job = queue
@@ -51,7 +51,7 @@ exports.createPurchaseCreatorJob = (req, res) => {
   // Fire up the `createPurchase` process(worker function) in the background
   // with the ability to run up to `20` active jobs of this type at a time.
   // Chop Chop!
-  queue.process(jobName, maxActiveJobs, createPurchase);
+  queue.process(jobName, createPurchase);
 
   // Job registered OK ;), see all jobs and their corresponding statuses on the queue dashboard
   // using the `queueDashboardLink` provided in the response below.
