@@ -343,20 +343,10 @@ module.exports = {
       customer = newlyCreatedCustomer;
     }
 
-    // All checks passed. Everything seems good! Create JWT token containing either new or existing customer's `id` and `role`.
-    const [jwtError, token] = await to(
-      util.promisify(jwt.sign)({ id: customer.uid, role: role.SHOPPER }, key.jwt_key, { expiresIn: "1h" })
-    );
-
-    // Forward JWT error to central error handler.
-    if (jwtError) {
-      return next(createHttpError(500, jwtError));
-    }
-
     // Success! Send newly issued JWT token as response.
     res.status(200).json({
-      message: "You're now logged in with Google!",
-      token,
+      accessToken: await  auth.createAccessToken({ id: customer.uid, role: role.SHOPPER }),
+      refreshToken: await auth.createRefreshToken({ id: customer.uid, }),
       user: customer,
     });
   },
