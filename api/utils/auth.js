@@ -9,7 +9,6 @@ const kvStore = require('../../config/cache_register');
 jwt.sign = util.promisify(jwt.sign);
 jwt.verify = util.promisify(jwt.verify);
 
-
 exports.createRefreshToken = async (payload) => {
   const [ encryptionError, refreshToken ] = await to(crypto.encrypt(JSON.stringify(payload)));
 
