@@ -14,11 +14,13 @@ exports.checkPassCorrectness = async (plainTextPass, hashedPass) => {
 };
 //hash
 exports.hashPassword = async (planTextPass, saltRounds = 10) => {
-  const [error, hash] = await to(bcrypt.hash(planTextPass, saltRounds));
+  const [error, hash] = await to(
+    bcrypt.hash(planTextPass, saltRounds, null, (err, hash) => {
+      if (error) {
+        throw error;
+      }
 
-  if (error) {
-    throw error;
-  }
-
-  return hash;
+      return hash;
+    })
+  );
 };
