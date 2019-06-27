@@ -1,4 +1,4 @@
-const bcrypt = require("bcrypt-nodejs");
+const bcrypt = require("bcrypt");
 const to = require("await-to-js").default;
 
 exports.checkPassCorrectness = async (plainTextPass, hashedPass) => {
@@ -12,15 +12,13 @@ exports.checkPassCorrectness = async (plainTextPass, hashedPass) => {
 
   return isCorrect;
 };
-//hash
-exports.hashPassword = async (planTextPass, saltRounds = 10) => {
-  const [error, hash] = await to(
-    bcrypt.hash(planTextPass, saltRounds, null, (err, hash) => {
-      if (error) {
-        throw error;
-      }
 
-      return hash;
-    })
-  );
+exports.hashPassword = async (planTextPass, saltRounds = 10) => {
+  const [error, hash] = await to(bcrypt.hash(planTextPass, saltRounds));
+
+  if (error) {
+    throw error;
+  }
+
+  return hash;
 };
