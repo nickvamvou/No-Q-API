@@ -1,7 +1,7 @@
 module.exports = {
-  ...require('./errors'),
-  crypto: require('./crypto'),
-  auth: require('./auth'),
-  password: require('./password'),
-  databaseUtil: require('./database'),
+  // ...require("./errors"),
+  crypto: require("./crypto"),
+  auth: require("./auth"),
+  password: require("./password"),
+  databaseUtil: require("./database")
 };
