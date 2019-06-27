@@ -1,4 +1,4 @@
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const to = require("await-to-js").default;
 
 exports.checkPassCorrectness = async (plainTextPass, hashedPass) => {
