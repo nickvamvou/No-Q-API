@@ -1,7 +1,7 @@
 //This defines the user controller
 const createHttpError = require("http-errors");
 const path = require("path");
-const bcrypt = require("bcryptjs");
+const bcrypt = require("bcrypt-nodejs");
 const to = require("await-to-js").default;
 const util = require("util");
 const pool = require("../../config/db_connection");
