@@ -12,7 +12,7 @@ exports.checkPassCorrectness = async (plainTextPass, hashedPass) => {
 
   return isCorrect;
 };
-
+//hash
 exports.hashPassword = async (planTextPass, saltRounds = 10) => {
   const [error, hash] = await to(bcrypt.hash(planTextPass, saltRounds));
 
