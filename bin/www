@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-
 // Load environment variables on development
 if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
   const result = require('dotenv').config();
@@ -8,6 +7,8 @@ if (!process.env.NODE_ENV || process.env.NODE_ENV === 'development') {
     throw result.error;
   }
 }
+
+console.log(process.version);
 
 /**
  * Module dependencies.

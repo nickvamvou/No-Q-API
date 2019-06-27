@@ -1,5 +1,5 @@
 module.exports = {
-  // ...require("./errors"),
+  ...require("./errors"),
   crypto: require("./crypto"),
   auth: require("./auth"),
   password: require("./password"),
