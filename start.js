@@ -5,7 +5,7 @@ var cookieParser = require("cookie-parser");
 var logger = require("morgan");
 var bodyParser = require("body-parser");
 var cors = require("cors");
-const kue = require('kue');
+const kue = require("kue");
 
 var indexRouter = require("./routes/index");
 var authRouter = require("./api/auth");
@@ -15,7 +15,7 @@ var storeRouter = require("./api/store/index");
 var usersRouter = require("./api/user/index");
 var cartRouter = require("./api/shopping_cart/index");
 const supportAPI = require("./api/support");
-const payments = require('./api/payments');
+const payments = require("./api/payments");
 
 var app = express();
 
@@ -51,7 +51,7 @@ app.use("/shopping_cart", cartRouter);
 app.use("/store", storeRouter);
 app.use("/support", supportAPI);
 app.use("/payments", payments);
-app.use('/queue-dashboard', kue.app);
+app.use("/queue-dashboard", kue.app);
 /*
 *******************************************************************************
                                 End
