@@ -1,7 +1,7 @@
 //This defines the user controller
 const createHttpError = require("http-errors");
 const path = require("path");
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const to = require("await-to-js").default;
 const util = require("util");
 const pool = require("../../config/db_connection");
@@ -313,7 +313,9 @@ module.exports = {
 
     // Validation of `accessToken` has passed. Check for customer's existence.
     const [queryError, [[existingCustomer]]] = await to(
-      pool.promiseQuery("CALL get_individual_details_by_email(?)", [tokenInfo.email])
+      pool.promiseQuery("CALL get_individual_details_by_email(?)", [
+        tokenInfo.email
+      ])
     );
 
     // Sadly, something bad happened while checking customer's existence. Forward `SqlError` to central error handler.
@@ -345,9 +347,12 @@ module.exports = {
 
     // Success! Send newly issued JWT token as response.
     res.status(200).json({
-      accessToken: await  auth.createAccessToken({ id: customer.uid, role: role.SHOPPER }),
-      refreshToken: await auth.createRefreshToken({ id: customer.uid, }),
-      user: customer,
+      accessToken: await auth.createAccessToken({
+        id: customer.uid,
+        role: role.SHOPPER
+      }),
+      refreshToken: await auth.createRefreshToken({ id: customer.uid }),
+      user: customer
     });
   },
 
@@ -1052,13 +1057,13 @@ module.exports = {
     const [rows] = queryResult;
 
     if (!rows.length) {
-      return next(createHttpError(404, 'Purchase not found'));
+      return next(createHttpError(404, "Purchase not found"));
     }
 
-    const [ { products, ...rest } ] = rows;
+    const [{ products, ...rest }] = rows;
 
     res.json({
-      data: { ...rest, products: JSON.parse(products) }, // Parse products to get rid of back slashes.
+      data: { ...rest, products: JSON.parse(products) } // Parse products to get rid of back slashes.
     });
   },
 
