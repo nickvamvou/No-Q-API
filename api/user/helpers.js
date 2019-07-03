@@ -40,7 +40,7 @@ const initiateResetPassword = async (
   // Configure mailer options
   const mailOptions = {
     to: email,
-    from: "no-q@info.io",
+    from: "noq.test.uae@gmail.com",
     template: "forgot-password",
     subject: "Password help has arrived!",
     context: {
