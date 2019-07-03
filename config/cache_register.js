@@ -2,25 +2,26 @@
  * Cache register powered by REDIS
  */
 
-const redis = require('redis');
-const bluebird = require('bluebird');
-
+const redis = require("redis");
+const bluebird = require("bluebird");
 
 bluebird.promisifyAll(redis.RedisClient.prototype);
 bluebird.promisifyAll(redis.Multi.prototype);
 
 // Create new client
 const client = redis.createClient(
-  `${process.env.REDIS_URL}?${process.env.REDIS_PASS && `password=${process.env.REDIS_PASS}`}`
+  `${process.env.REDIS_URL}?${process.env.REDIS_PASS &&
+    `password=${process.env.REDIS_PASS}`}`
 );
 
-client.on('connect', () => {
-  console.log('Redis client connected');
+console.log(client);
+
+client.on("connect", () => {
+  console.log("Redis client connected");
 });
 
-client.on('error', (err) => {
+client.on("error", err => {
   console.log(`Something went wrong ${err}'`);
 });
-
 
 module.exports = client;

@@ -797,6 +797,7 @@ module.exports = {
       module.exports.hashPassword(newPassword)
     );
 
+    console.log("lol");
     // Forward fatal error to global error handler
     if (passHashErr) {
       return next(createHttpError(500, passHashErr));
