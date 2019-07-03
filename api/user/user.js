@@ -818,7 +818,7 @@ module.exports = {
     // Configure mailer options
     const mailOptions = {
       to: email,
-      from: "no-q@info.io",
+      from: "info@no-q.io",
       template: "password-reset-success",
       subject: "Your password has been changed successfully",
       context: {
