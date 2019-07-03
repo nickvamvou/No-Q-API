@@ -6,7 +6,7 @@ const jwt = require("jsonwebtoken");
 const to = require("await-to-js").default;
 const util = require("util");
 
-// const cacheRegister = require('../../config/cache_register');
+const cacheRegister = require("../../config/cache_register");
 const key = require("../../config/jwt_s_key");
 const mailer = require("../../config/mailer");
 
